@@ -1,35 +1,55 @@
+"use client"
+
+import { useState, useEffect } from "react"
 import Link from "next/link"
-import { Music2, Users, Sparkles, Package, ArrowLeftRight, BarChart3 } from "lucide-react"
+import { Music2, Users, Sparkles, Package, ArrowLeftRight, BarChart3, Loader2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
 import { cn } from "@/lib/utils"
+import { usersApi, cardsApi } from "@/lib/api"
+import { useAuth } from "@/contexts/AuthContext"
+import type { LeaderboardEntry, CardDisplay } from "@/lib/types"
 
 export default function LandingPage() {
-  // Mock data for trending cards
-  const trendingCards = [
-    { id: 1, song: "Blinding Lights", artist: "The Weeknd", momentum: 98, image: "/blinding-lights.jpg" },
-    { id: 2, song: "As It Was", artist: "Harry Styles", momentum: 95, image: "/as-it-was.jpg" },
-    { id: 3, song: "Heat Waves", artist: "Glass Animals", momentum: 92, image: "/heat-waves.jpg" },
-    { id: 4, song: "Shivers", artist: "Ed Sheeran", momentum: 89, image: "/shivers.jpg" },
-    { id: 5, song: "Stay", artist: "Kid LAROI", momentum: 87, image: "/stay-kid-laroi.jpg" },
-    { id: 6, song: "Easy On Me", artist: "Adele", momentum: 85, image: "/easy-on-me.jpg" },
-    { id: 7, song: "Ghost", artist: "Justin Bieber", momentum: 83, image: "/ghost-bieber.jpg" },
-    { id: 8, song: "Levitating", artist: "Dua Lipa", momentum: 81, image: "/levitating.jpg" },
-    { id: 9, song: "Good 4 U", artist: "Olivia Rodrigo", momentum: 79, image: "/good-4-u.jpg" },
-  ]
+  const { isAuthenticated, isLoading: authLoading } = useAuth()
+  const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([])
+  const [trendingCards, setTrendingCards] = useState<CardDisplay[]>([])
+  const [isLoadingLeaderboard, setIsLoadingLeaderboard] = useState(true)
+  const [isLoadingCards, setIsLoadingCards] = useState(true)
 
-  const leaderboard = [
-    { rank: 1, username: "MusicMaestro", energy: 12450 },
-    { rank: 2, username: "BeatCollector", energy: 11890 },
-    { rank: 3, username: "SoundWave", energy: 11230 },
-    { rank: 4, username: "RhythmKing", energy: 10980 },
-    { rank: 5, username: "MelodyMaster", energy: 10450 },
-    { rank: 6, username: "HarmonyHero", energy: 9870 },
-    { rank: 7, username: "VibeQueen", energy: 9560 },
-    { rank: 8, username: "TuneTrader", energy: 9210 },
-    { rank: 9, username: "AudioAddict", energy: 8890 },
-    { rank: 10, username: "SonicSage", energy: 8450 },
-  ]
+  useEffect(() => {
+    async function fetchLeaderboard() {
+      const result = await usersApi.getLeaderboard()
+      if (result.data) {
+        setLeaderboard(result.data)
+      }
+      setIsLoadingLeaderboard(false)
+    }
+
+    async function fetchTrendingCards() {
+      const result = await cardsApi.getAll(1, 9)
+      if (result.data) {
+        // Sort by momentum descending and take top 9
+        const sorted = result.data.cards
+          .sort((a, b) => b.momentum - a.momentum)
+          .slice(0, 9)
+          .map((card) => ({
+            id: card.id,
+            songName: card.song_name,
+            artistName: card.artist_name,
+            albumArtUrl: card.album_art_url,
+            momentum: card.momentum,
+            energy: card.energy,
+            bpm: card.bpm,
+          }))
+        setTrendingCards(sorted)
+      }
+      setIsLoadingCards(false)
+    }
+
+    fetchLeaderboard()
+    fetchTrendingCards()
+  }, [])
 
   return (
     <div className="min-h-screen">
@@ -52,14 +72,30 @@ export default function LandingPage() {
               every card has value.
             </p>
             <div className="flex gap-4">
-              <Link href="/login">
-                <Button
-                  size="lg"
-                  className="h-12 px-8 text-base font-semibold bg-primary text-primary-foreground hover:bg-primary/90"
-                >
-                  Get Started
+              {authLoading ? (
+                <Button size="lg" className="h-12 px-8" disabled>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Loading...
                 </Button>
-              </Link>
+              ) : isAuthenticated ? (
+                <Link href="/deck">
+                  <Button
+                    size="lg"
+                    className="h-12 px-8 text-base font-semibold bg-primary text-primary-foreground hover:bg-primary/90"
+                  >
+                    Go to My Deck
+                  </Button>
+                </Link>
+              ) : (
+                <Link href="/login">
+                  <Button
+                    size="lg"
+                    className="h-12 px-8 text-base font-semibold bg-primary text-primary-foreground hover:bg-primary/90"
+                  >
+                    Get Started
+                  </Button>
+                </Link>
+              )}
               <Button size="lg" variant="outline" className="h-12 px-8 text-base font-semibold bg-transparent">
                 Learn More
               </Button>
@@ -81,33 +117,43 @@ export default function LandingPage() {
                 </div>
                 <Users className="h-5 w-5 text-muted-foreground" />
               </div>
-              <div className="space-y-3">
-                {leaderboard.map((entry) => (
-                  <div
-                    key={entry.rank}
-                    className="flex items-center justify-between rounded-lg bg-muted/30 p-4 transition-colors hover:bg-muted/50"
-                  >
-                    <div className="flex items-center gap-4">
-                      <div
-                        className={cn(
-                          "flex h-8 w-8 items-center justify-center rounded-full font-bold",
-                          entry.rank === 1 && "bg-primary text-primary-foreground",
-                          entry.rank === 2 && "bg-muted-foreground/20 text-foreground",
-                          entry.rank === 3 && "bg-secondary/20 text-secondary",
-                          entry.rank > 3 && "bg-muted text-muted-foreground",
-                        )}
-                      >
-                        {entry.rank}
+              {isLoadingLeaderboard ? (
+                <div className="flex items-center justify-center py-12">
+                  <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                </div>
+              ) : leaderboard.length === 0 ? (
+                <div className="text-center py-12 text-muted-foreground">
+                  No collectors yet. Be the first!
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {leaderboard.map((entry, index) => (
+                    <div
+                      key={entry.id}
+                      className="flex items-center justify-between rounded-lg bg-muted/30 p-4 transition-colors hover:bg-muted/50"
+                    >
+                      <div className="flex items-center gap-4">
+                        <div
+                          className={cn(
+                            "flex h-8 w-8 items-center justify-center rounded-full font-bold",
+                            index === 0 && "bg-primary text-primary-foreground",
+                            index === 1 && "bg-muted-foreground/20 text-foreground",
+                            index === 2 && "bg-secondary/20 text-secondary",
+                            index > 2 && "bg-muted text-muted-foreground",
+                          )}
+                        >
+                          {index + 1}
+                        </div>
+                        <span className="font-medium">{entry.username}</span>
                       </div>
-                      <span className="font-medium">{entry.username}</span>
+                      <div className="flex items-center gap-2">
+                        <span className="text-lg font-bold text-primary">{entry.total_energy.toLocaleString()}</span>
+                        <span className="text-sm text-muted-foreground">energy</span>
+                      </div>
                     </div>
-                    <div className="flex items-center gap-2">
-                      <span className="text-lg font-bold text-primary">{entry.energy.toLocaleString()}</span>
-                      <span className="text-sm text-muted-foreground">energy</span>
-                    </div>
-                  </div>
-                ))}
-              </div>
+                  ))}
+                </div>
+              )}
             </Card>
 
             {/* Trending Cards */}
@@ -115,30 +161,40 @@ export default function LandingPage() {
               <div className="mb-6 flex items-center gap-2">
                 <h2 className="text-2xl font-bold font-serif">Trending Now</h2>
               </div>
-              <div className="grid grid-cols-3 gap-4">
-                {trendingCards.map((card) => (
-                  <div
-                    key={card.id}
-                    className="group relative overflow-hidden rounded-lg border border-border bg-muted/30 transition-all hover:scale-105 hover:border-primary hover:shadow-lg hover:shadow-primary/20"
-                  >
-                    <div className="aspect-square">
-                      <img
-                        src={card.image || "/placeholder.svg"}
-                        alt={card.song}
-                        className="h-full w-full object-cover"
-                      />
-                    </div>
-                    <div className="p-3">
-                      <h3 className="truncate text-sm font-semibold">{card.song}</h3>
-                      <p className="truncate text-xs text-muted-foreground">{card.artist}</p>
-                      <div className="mt-2 flex items-center justify-between">
-                        <span className="text-xs text-muted-foreground">Momentum</span>
-                        <span className="text-sm font-bold text-secondary">{card.momentum}</span>
+              {isLoadingCards ? (
+                <div className="flex items-center justify-center py-12">
+                  <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                </div>
+              ) : trendingCards.length === 0 ? (
+                <div className="text-center py-12 text-muted-foreground">
+                  No trending cards yet. Check back soon!
+                </div>
+              ) : (
+                <div className="grid grid-cols-3 gap-4">
+                  {trendingCards.map((card) => (
+                    <div
+                      key={card.id}
+                      className="group relative overflow-hidden rounded-lg border border-border bg-muted/30 transition-all hover:scale-105 hover:border-primary hover:shadow-lg hover:shadow-primary/20"
+                    >
+                      <div className="aspect-square">
+                        <img
+                          src={card.albumArtUrl || "/placeholder.svg"}
+                          alt={card.songName}
+                          className="h-full w-full object-cover"
+                        />
+                      </div>
+                      <div className="p-3">
+                        <h3 className="truncate text-sm font-semibold">{card.songName}</h3>
+                        <p className="truncate text-xs text-muted-foreground">{card.artistName}</p>
+                        <div className="mt-2 flex items-center justify-between">
+                          <span className="text-xs text-muted-foreground">Momentum</span>
+                          <span className="text-sm font-bold text-secondary">{card.momentum}</span>
+                        </div>
                       </div>
                     </div>
-                  </div>
-                ))}
-              </div>
+                  ))}
+                </div>
+              )}
             </Card>
           </div>
 
@@ -158,16 +214,37 @@ export default function LandingPage() {
               </div>
               <div className="p-6">
                 <div className="space-y-4">
-                  <Link href="/login" className="block">
-                    <Button className="w-full bg-primary text-primary-foreground hover:bg-primary/90" size="lg">
-                      Sign In
-                    </Button>
-                  </Link>
-                  <Link href="/login?mode=signup" className="block">
-                    <Button variant="outline" className="w-full bg-transparent" size="lg">
-                      Create Account
-                    </Button>
-                  </Link>
+                  {authLoading ? (
+                    <div className="flex items-center justify-center py-4">
+                      <Loader2 className="h-6 w-6 animate-spin text-primary" />
+                    </div>
+                  ) : isAuthenticated ? (
+                    <>
+                      <Link href="/deck" className="block">
+                        <Button className="w-full bg-primary text-primary-foreground hover:bg-primary/90" size="lg">
+                          View My Deck
+                        </Button>
+                      </Link>
+                      <Link href="/unbox" className="block">
+                        <Button variant="outline" className="w-full bg-transparent" size="lg">
+                          Unbox New Cards
+                        </Button>
+                      </Link>
+                    </>
+                  ) : (
+                    <>
+                      <Link href="/login" className="block">
+                        <Button className="w-full bg-primary text-primary-foreground hover:bg-primary/90" size="lg">
+                          Sign In
+                        </Button>
+                      </Link>
+                      <Link href="/login?mode=signup" className="block">
+                        <Button variant="outline" className="w-full bg-transparent" size="lg">
+                          Create Account
+                        </Button>
+                      </Link>
+                    </>
+                  )}
                 </div>
                 <div className="mt-6 space-y-4 border-t border-border pt-6">
                   <div className="flex items-start gap-3">

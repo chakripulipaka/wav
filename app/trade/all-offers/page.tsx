@@ -1,139 +1,79 @@
 "use client"
 
 import type React from "react"
-
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Navigation } from "@/components/navigation"
 import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { ArrowLeftRight, Clock, Check, XCircle } from "lucide-react"
+import { ArrowLeftRight, Clock, Check, XCircle, Loader2, AlertCircle } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { TradeDetailModal } from "@/components/trade-detail-modal"
-import { TradeCardHoverPreview } from "@/components/trade-card-hover-preview"
-
-const mockUserCards = [
-  {
-    id: 1,
-    songName: "Blinding Lights",
-    artistName: "The Weeknd",
-    albumArtUrl: "/blinding-lights.jpg",
-    momentum: 98,
-    energy: 450,
-  },
-  {
-    id: 2,
-    songName: "As It Was",
-    artistName: "Harry Styles",
-    albumArtUrl: "/as-it-was.jpg",
-    momentum: 95,
-    energy: 420,
-  },
-  {
-    id: 3,
-    songName: "Heat Waves",
-    artistName: "Glass Animals",
-    albumArtUrl: "/heat-waves.jpg",
-    momentum: 92,
-    energy: 380,
-  },
-]
-
-const mockOtherUserCards = [
-  {
-    id: 4,
-    songName: "Shivers",
-    artistName: "Ed Sheeran",
-    albumArtUrl: "/shivers.jpg",
-    momentum: 89,
-    energy: 350,
-  },
-  {
-    id: 5,
-    songName: "Stay",
-    artistName: "The Kid LAROI",
-    albumArtUrl: "/stay-kid-laroi.jpg",
-    momentum: 87,
-    energy: 340,
-  },
-  {
-    id: 6,
-    songName: "Easy On Me",
-    artistName: "Adele",
-    albumArtUrl: "/easy-on-me.jpg",
-    momentum: 85,
-    energy: 330,
-  },
-]
-
-const mockTrades = [
-  {
-    id: 1,
-    from: "MusicMaestro",
-    status: "pending" as const,
-    timestamp: "2 minutes ago",
-    offering: [mockOtherUserCards[0], mockOtherUserCards[1]],
-    requesting: [mockUserCards[0], mockUserCards[2]],
-  },
-  {
-    id: 2,
-    from: "BeatCollector",
-    status: "accepted" as const,
-    timestamp: "1 hour ago",
-    offering: [mockOtherUserCards[1]],
-    requesting: [mockUserCards[1]],
-  },
-  {
-    id: 3,
-    from: "SoundWave",
-    status: "declined" as const,
-    timestamp: "3 hours ago",
-    offering: [mockOtherUserCards[2], mockOtherUserCards[0]],
-    requesting: [mockUserCards[2], mockUserCards[1]],
-  },
-  {
-    id: 4,
-    from: "RhythmKing",
-    status: "pending" as const,
-    timestamp: "5 hours ago",
-    offering: [mockOtherUserCards[0]],
-    requesting: [mockUserCards[1]],
-  },
-  {
-    id: 5,
-    from: "SonicVibes",
-    status: "accepted" as const,
-    timestamp: "6 hours ago",
-    offering: [mockOtherUserCards[1], mockOtherUserCards[2]],
-    requesting: [mockUserCards[2]],
-  },
-  {
-    id: 6,
-    from: "MelodyHunter",
-    status: "pending" as const,
-    timestamp: "8 hours ago",
-    offering: [mockOtherUserCards[2]],
-    requesting: [mockUserCards[0], mockUserCards[1]],
-  },
-]
+import { TradeCountdown } from "@/components/trade-countdown"
+import { useAuth } from "@/contexts/AuthContext"
+import { tradesApi } from "@/lib/api"
+import type { TradeDisplay } from "@/lib/types"
+import { transformTradeForDisplay } from "@/lib/types"
 
 export default function AllTradeOffersPage() {
-  const [selectedTradeDetail, setSelectedTradeDetail] = useState<(typeof mockTrades)[0] | null>(null)
-  const [hoveredOfferCard, setHoveredOfferCard] = useState<number | null>(null)
-  const [offerHoverPosition, setOfferHoverPosition] = useState({ x: 0, y: 0 })
+  const { user } = useAuth()
 
-  const handleOfferCardMouseEnter = (e: React.MouseEvent, cardId: number) => {
+  // Data state
+  const [trades, setTrades] = useState<TradeDisplay[]>([])
+  const [selectedTradeDetail, setSelectedTradeDetail] = useState<TradeDisplay | null>(null)
+  const [hoveredOfferCard, setHoveredOfferCard] = useState<string | null>(null)
+
+  // Loading state
+  const [isLoading, setIsLoading] = useState(true)
+
+  // Handler for card hover
+  const handleOfferCardMouseEnter = (e: React.MouseEvent, cardId: string) => {
     setHoveredOfferCard(cardId)
-    const rect = e.currentTarget.getBoundingClientRect()
-    setOfferHoverPosition({
-      x: rect.right + 10,
-      y: rect.top + rect.height / 2,
-    })
   }
 
-  const getHoveredOfferCard = () => {
-    if (hoveredOfferCard === null) return null
-    const allCards = [...mockUserCards, ...mockOtherUserCards]
-    return allCards.find((card) => card.id === hoveredOfferCard) || null
+  // Fetch trades on mount
+  useEffect(() => {
+    async function fetchTrades() {
+      if (!user) return
+
+      const result = await tradesApi.getAll()
+      if (result.data) {
+        const transformedTrades = result.data.map((trade) => transformTradeForDisplay(trade, user.id))
+        setTrades(transformedTrades)
+      }
+      setIsLoading(false)
+    }
+
+    fetchTrades()
+  }, [user])
+
+  const handleAcceptTrade = async (tradeId: string) => {
+    if (!user) return
+
+    const result = await tradesApi.accept(tradeId)
+    if (!result.error) {
+      // Refresh trades
+      const tradesResult = await tradesApi.getAll()
+      if (tradesResult.data) {
+        const transformedTrades = tradesResult.data.map((trade) => transformTradeForDisplay(trade, user.id))
+        setTrades(transformedTrades)
+      }
+      setSelectedTradeDetail(null)
+    }
+  }
+
+  const handleDeclineTrade = async (tradeId: string) => {
+    if (!user) return
+
+    const result = await tradesApi.decline(tradeId)
+    if (!result.error) {
+      // Refresh trades
+      const tradesResult = await tradesApi.getAll()
+      if (tradesResult.data) {
+        const transformedTrades = tradesResult.data.map((trade) => transformTradeForDisplay(trade, user.id))
+        setTrades(transformedTrades)
+      }
+      setSelectedTradeDetail(null)
+    }
   }
 
   return (
@@ -143,35 +83,53 @@ export default function AllTradeOffersPage() {
       <div className="mx-auto max-w-2xl px-6 py-8">
         <h1 className="mb-8 text-3xl font-bold">All Trade Offers</h1>
 
-        <div className="space-y-4">
-          {mockTrades.map((trade) => (
+        {isLoading ? (
+          <div className="flex items-center justify-center py-12">
+            <Loader2 className="h-8 w-8 animate-spin text-primary" />
+          </div>
+        ) : trades.length === 0 ? (
+          <Card className="p-12 text-center">
+            <p className="text-muted-foreground">No trade offers yet</p>
+            <p className="text-sm text-muted-foreground mt-2">Visit the trade page to start trading!</p>
+          </Card>
+        ) : (
+          <div className="space-y-4">
+            {trades.map((trade) => (
             <Card
               key={trade.id}
               onClick={() => setSelectedTradeDetail(trade)}
               className={cn(
                 "border-l-4 bg-muted/30 p-6 transition-all hover:bg-muted/50 cursor-pointer",
-                trade.status === "pending" && "border-l-orange-500",
+                trade.status === "pending" && !trade.isSent && "border-l-orange-500",
+                trade.status === "pending" && trade.isSent && "border-l-blue-500",
                 trade.status === "accepted" && "border-l-green-500",
-                trade.status === "declined" && "border-l-destructive",
+                (trade.status === "declined" || trade.status === "expired") && "border-l-destructive",
               )}
             >
               <div className="mb-4 flex items-center justify-between">
                 <div>
-                  <p className="text-lg font-semibold">{trade.from}</p>
+                  <p className="text-lg font-semibold">{trade.isSent ? `To: ${trade.from}` : trade.from}</p>
                   <p className="text-sm text-muted-foreground">{trade.timestamp}</p>
                 </div>
-                <div
-                  className={cn(
-                    "flex items-center gap-1 rounded-full px-3 py-1 text-sm font-medium",
-                    trade.status === "pending" && "bg-primary/20 text-primary",
-                    trade.status === "accepted" && "bg-green-500/20 text-green-500",
-                    trade.status === "declined" && "bg-destructive/20 text-destructive",
+                <div className="flex items-center gap-2">
+                  {trade.status === "pending" && (
+                    <TradeCountdown expiresAt={trade.expiresAt} className="text-sm text-muted-foreground" />
                   )}
-                >
-                  {trade.status === "pending" && <Clock className="h-4 w-4" />}
-                  {trade.status === "accepted" && <Check className="h-4 w-4" />}
-                  {trade.status === "declined" && <XCircle className="h-4 w-4" />}
-                  {trade.status}
+                  <div
+                    className={cn(
+                      "flex items-center gap-1 rounded-full px-3 py-1 text-sm font-medium",
+                      trade.status === "pending" && !trade.isSent && "bg-primary/20 text-primary",
+                      trade.status === "pending" && trade.isSent && "bg-blue-500/20 text-blue-500",
+                      trade.status === "accepted" && "bg-green-500/20 text-green-500",
+                      (trade.status === "declined" || trade.status === "expired") && "bg-destructive/20 text-destructive",
+                    )}
+                  >
+                    {trade.status === "pending" && <Clock className="h-4 w-4" />}
+                    {trade.status === "accepted" && <Check className="h-4 w-4" />}
+                    {trade.status === "declined" && <XCircle className="h-4 w-4" />}
+                    {trade.status === "expired" && <AlertCircle className="h-4 w-4" />}
+                    {trade.status}
+                  </div>
                 </div>
               </div>
 
@@ -229,14 +187,14 @@ export default function AllTradeOffersPage() {
                 </div>
               </div>
 
-              {trade.status === "pending" && (
+              {trade.status === "pending" && !trade.isSent && (
                 <div className="mt-4 flex gap-2">
                   <Button
                     size="sm"
                     className="flex-1"
                     onClick={(e) => {
                       e.stopPropagation()
-                      console.log("[v0] Accepted trade:", trade.id)
+                      handleAcceptTrade(trade.id)
                     }}
                   >
                     Accept
@@ -247,35 +205,32 @@ export default function AllTradeOffersPage() {
                     className="flex-1 bg-transparent"
                     onClick={(e) => {
                       e.stopPropagation()
-                      console.log("[v0] Declined trade:", trade.id)
+                      handleDeclineTrade(trade.id)
                     }}
                   >
                     Decline
                   </Button>
                 </div>
               )}
+              {trade.status === "expired" && (
+                <div className="mt-4 text-center text-sm text-muted-foreground">
+                  This trade has expired
+                </div>
+              )}
             </Card>
-          ))}
-        </div>
+            ))}
+          </div>
+        )}
       </div>
-
-      {hoveredOfferCard && getHoveredOfferCard() && (
-        <TradeCardHoverPreview card={getHoveredOfferCard()!} position={offerHoverPosition} />
-      )}
 
       {selectedTradeDetail && (
         <TradeDetailModal
           open={!!selectedTradeDetail}
           onOpenChange={(open) => !open && setSelectedTradeDetail(null)}
           trade={selectedTradeDetail}
-          onAccept={() => {
-            console.log("[v0] Accept trade:", selectedTradeDetail.id)
-            setSelectedTradeDetail(null)
-          }}
-          onDecline={() => {
-            console.log("[v0] Decline trade:", selectedTradeDetail.id)
-            setSelectedTradeDetail(null)
-          }}
+          isSent={selectedTradeDetail.isSent}
+          onAccept={() => handleAcceptTrade(selectedTradeDetail.id)}
+          onDecline={() => handleDeclineTrade(selectedTradeDetail.id)}
         />
       )}
     </div>

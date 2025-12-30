@@ -1,21 +1,27 @@
 "use client"
 
 import type React from "react"
-
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import Link from "next/link"
 import { useRouter, useSearchParams } from "next/navigation"
-import { Mail, Lock, User, Eye, EyeOff } from "lucide-react"
+import { Mail, Lock, User, Eye, EyeOff, Loader2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Card } from "@/components/ui/card"
+import { useAuth } from "@/contexts/AuthContext"
 
 export default function LoginPage() {
   const router = useRouter()
   const searchParams = useSearchParams()
+  const { login, register, isAuthenticated, isLoading: authLoading } = useAuth()
+
   const mode = searchParams.get("mode") || "signin"
+  const redirect = searchParams.get("redirect") || "/deck"
+
   const [showPassword, setShowPassword] = useState(false)
+  const [isSubmitting, setIsSubmitting] = useState(false)
+  const [error, setError] = useState<string | null>(null)
   const [formData, setFormData] = useState({
     username: "",
     email: "",
@@ -24,16 +30,50 @@ export default function LoginPage() {
 
   const isSignUp = mode === "signup"
 
+  // Redirect if already authenticated
+  useEffect(() => {
+    if (!authLoading && isAuthenticated) {
+      router.push(redirect)
+    }
+  }, [authLoading, isAuthenticated, router, redirect])
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    // TODO: Implement authentication logic
-    console.log("[v0] Form submitted:", formData)
-    // Redirect to deck page after login
-    router.push("/deck")
+    setError(null)
+    setIsSubmitting(true)
+
+    try {
+      let result
+      if (isSignUp) {
+        result = await register(formData.username, formData.email, formData.password)
+      } else {
+        result = await login(formData.email, formData.password)
+      }
+
+      if (result.success) {
+        router.push(redirect)
+      } else {
+        setError(result.error || "An error occurred")
+      }
+    } catch (err) {
+      setError("An unexpected error occurred")
+    } finally {
+      setIsSubmitting(false)
+    }
   }
 
   const handleInputChange = (field: string, value: string) => {
     setFormData((prev) => ({ ...prev, [field]: value }))
+    setError(null) // Clear error when user types
+  }
+
+  // Show loading state while checking auth
+  if (authLoading) {
+    return (
+      <div className="flex min-h-screen items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    )
   }
 
   return (
@@ -56,6 +96,12 @@ export default function LoginPage() {
 
         {/* Form */}
         <form onSubmit={handleSubmit} className="space-y-6 p-8">
+          {error && (
+            <div className="rounded-lg bg-destructive/10 p-3 text-sm text-destructive">
+              {error}
+            </div>
+          )}
+
           {isSignUp && (
             <div className="space-y-2">
               <Label htmlFor="username" className="text-sm font-medium">
@@ -71,6 +117,7 @@ export default function LoginPage() {
                   onChange={(e) => handleInputChange("username", e.target.value)}
                   className="pl-10 bg-muted/30 border-border"
                   required={isSignUp}
+                  disabled={isSubmitting}
                 />
               </div>
             </div>
@@ -90,6 +137,7 @@ export default function LoginPage() {
                 onChange={(e) => handleInputChange("email", e.target.value)}
                 className="pl-10 bg-muted/30 border-border"
                 required
+                disabled={isSubmitting}
               />
             </div>
           </div>
@@ -108,6 +156,7 @@ export default function LoginPage() {
                 onChange={(e) => handleInputChange("password", e.target.value)}
                 className="pl-10 pr-10 bg-muted/30 border-border"
                 required
+                disabled={isSubmitting}
               />
               <button
                 type="button"
@@ -117,10 +166,22 @@ export default function LoginPage() {
                 {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
               </button>
             </div>
+            {isSignUp && (
+              <p className="text-xs text-muted-foreground">
+                Password must be at least 8 characters with uppercase, lowercase, and number
+              </p>
+            )}
           </div>
 
-          <Button type="submit" className="w-full" size="lg">
-            {isSignUp ? "Create Account" : "Sign In"}
+          <Button type="submit" className="w-full" size="lg" disabled={isSubmitting}>
+            {isSubmitting ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                {isSignUp ? "Creating Account..." : "Signing In..."}
+              </>
+            ) : (
+              isSignUp ? "Create Account" : "Sign In"
+            )}
           </Button>
 
           <div className="text-center text-sm">

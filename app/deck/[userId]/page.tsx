@@ -1,47 +1,78 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, use } from "react"
 import { Navigation } from "@/components/navigation"
 import { MusicCard } from "@/components/music-card"
-import { DeleteCardModal } from "@/components/delete-card-modal"
 import { Input } from "@/components/ui/input"
-import { Search, Filter, TrendingUp, Loader2 } from "lucide-react"
+import { Card } from "@/components/ui/card"
+import { Search, Filter, TrendingUp, Loader2, Lock } from "lucide-react"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { useAuth, useRequireAuth } from "@/contexts/AuthContext"
-import { cardsApi } from "@/lib/api"
-import type { CardDisplay } from "@/lib/types"
+import { useAuth } from "@/contexts/AuthContext"
+import { cardsApi, usersApi } from "@/lib/api"
+import type { CardDisplay, Profile } from "@/lib/types"
 
-export default function MyDeckPage() {
-  const { user } = useRequireAuth()
+interface PublicDeckPageProps {
+  params: Promise<{ userId: string }>
+}
+
+export default function PublicDeckPage({ params }: PublicDeckPageProps) {
+  const { userId } = use(params)
+  const { user: currentUser } = useAuth()
+  const isOwner = currentUser?.id === userId
+
   const [searchQuery, setSearchQuery] = useState("")
   const [artistFilter, setArtistFilter] = useState("all")
-  const [deleteModalOpen, setDeleteModalOpen] = useState(false)
-  const [selectedCard, setSelectedCard] = useState<CardDisplay | null>(null)
   const [deck, setDeck] = useState<CardDisplay[]>([])
+  const [profileUser, setProfileUser] = useState<Pick<Profile, "id" | "username" | "avatar_url" | "deck_privacy"> | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [isPrivate, setIsPrivate] = useState(false)
 
-  // Fetch user's cards
+  // Fetch user info and cards
   useEffect(() => {
-    async function fetchCards() {
-      if (!user?.id) return
-
+    async function fetchData() {
       setIsLoading(true)
       setError(null)
+      setIsPrivate(false)
 
-      const result = await cardsApi.getUserCards(user.id)
+      // Fetch user profile
+      const userResult = await usersApi.getProfile(userId)
+      if (userResult.error) {
+        setError(userResult.error)
+        setIsLoading(false)
+        return
+      }
 
-      if (result.error) {
-        setError(result.error)
-      } else if (result.data) {
-        setDeck(result.data)
+      if (userResult.data) {
+        setProfileUser(userResult.data)
+      }
+
+      // Fetch user's cards
+      const cardsResult = await cardsApi.getUserCards(userId)
+
+      if (cardsResult.error) {
+        if (cardsResult.error === "This deck is private") {
+          setIsPrivate(true)
+        } else {
+          setError(cardsResult.error)
+        }
+      } else if (cardsResult.data) {
+        setDeck(cardsResult.data)
       }
 
       setIsLoading(false)
     }
 
-    fetchCards()
-  }, [user?.id])
+    fetchData()
+  }, [userId])
+
+  // If owner, redirect to their own deck page
+  if (isOwner) {
+    if (typeof window !== "undefined") {
+      window.location.href = "/deck"
+    }
+    return null
+  }
 
   // Get unique artists for filter
   const artists = ["all", ...Array.from(new Set(deck.map((card) => card.artistName)))]
@@ -62,20 +93,6 @@ export default function MyDeckPage() {
   const totalEnergy = deck.reduce((sum, card) => sum + card.energy, 0)
   const totalMomentum = deck.reduce((sum, card) => sum + card.momentum, 0)
 
-  const handleDeleteClick = (card: CardDisplay) => {
-    setSelectedCard(card)
-    setDeleteModalOpen(true)
-  }
-
-  const handleConfirmDelete = () => {
-    if (selectedCard) {
-      // TODO: Implement API call to delete card
-      setDeck(deck.filter((card) => card.id !== selectedCard.id))
-      setDeleteModalOpen(false)
-      setSelectedCard(null)
-    }
-  }
-
   if (isLoading) {
     return (
       <div className="min-h-screen">
@@ -87,6 +104,48 @@ export default function MyDeckPage() {
     )
   }
 
+  // Show private message
+  if (isPrivate) {
+    return (
+      <div className="min-h-screen">
+        <Navigation />
+        <div className="mx-auto max-w-[1800px] px-6 py-8">
+          <Card className="flex flex-col items-center justify-center gap-4 p-12 text-center">
+            <Lock className="h-16 w-16 text-muted-foreground" />
+            <div>
+              <h1 className="text-2xl font-bold">Private Deck</h1>
+              <p className="mt-2 text-muted-foreground">
+                {profileUser?.username || "This user"}&apos;s deck is private.
+              </p>
+              <p className="text-sm text-muted-foreground/70">
+                Only they can view their collection.
+              </p>
+            </div>
+          </Card>
+        </div>
+      </div>
+    )
+  }
+
+  // Show error
+  if (error) {
+    return (
+      <div className="min-h-screen">
+        <Navigation />
+        <div className="mx-auto max-w-[1800px] px-6 py-8">
+          <Card className="flex flex-col items-center justify-center gap-4 p-12 text-center">
+            <div className="text-destructive">
+              <h1 className="text-2xl font-bold">Error</h1>
+              <p className="mt-2">{error}</p>
+            </div>
+          </Card>
+        </div>
+      </div>
+    )
+  }
+
+  const username = profileUser?.username || "User"
+
   return (
     <div className="min-h-screen">
       <Navigation />
@@ -96,9 +155,9 @@ export default function MyDeckPage() {
         <div className="mb-8 flex items-center justify-between">
           <div>
             <h1 className="text-4xl font-bold text-white">
-              My W<span className="text-primary">AV</span>
+              {username}&apos;s W<span className="text-primary">AV</span>
             </h1>
-            <p className="mt-2 text-muted-foreground">{deck.length} cards in your collection</p>
+            <p className="mt-2 text-muted-foreground">{deck.length} cards in collection</p>
           </div>
           <div className="flex gap-6">
             <div className="rounded-lg border border-border bg-card p-4">
@@ -141,14 +200,7 @@ export default function MyDeckPage() {
           </Select>
         </div>
 
-        {/* Error State */}
-        {error && (
-          <div className="mb-6 rounded-lg bg-destructive/10 p-4 text-destructive">
-            {error}
-          </div>
-        )}
-
-        {/* Card Grid */}
+        {/* Card Grid - Read only (no delete) */}
         {filteredDeck.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-20 text-center">
             <TrendingUp className="mb-4 h-16 w-16 text-muted-foreground" />
@@ -157,26 +209,18 @@ export default function MyDeckPage() {
             </h2>
             <p className="mt-2 text-muted-foreground">
               {deck.length === 0
-                ? "Start unboxing to build your collection!"
+                ? `${username} hasn't collected any cards yet.`
                 : "Try adjusting your filters or search query"}
             </p>
           </div>
         ) : (
           <div className="grid grid-cols-2 gap-6 md:grid-cols-4 lg:grid-cols-6 xl:grid-cols-8">
             {filteredDeck.map((card) => (
-              <MusicCard key={card.id} card={card} onDelete={() => handleDeleteClick(card)} />
+              <MusicCard key={card.id} card={card} showDelete={false} />
             ))}
           </div>
         )}
       </div>
-
-      {/* Delete Modal */}
-      <DeleteCardModal
-        isOpen={deleteModalOpen}
-        onClose={() => setDeleteModalOpen(false)}
-        onConfirm={handleConfirmDelete}
-        cardName={selectedCard?.songName || ""}
-      />
     </div>
   )
 }

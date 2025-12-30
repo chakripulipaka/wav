@@ -7,7 +7,7 @@ import { cn } from "@/lib/utils"
 
 interface MusicCardProps {
   card: {
-    id: number
+    id?: string | number
     songName: string
     artistName: string
     albumArtUrl?: string
@@ -17,6 +17,18 @@ interface MusicCardProps {
   }
   onDelete?: () => void
   showDelete?: boolean
+}
+
+// Format energy for display (e.g., 1.5K, 50K, 100K)
+function formatEnergy(energy: number): string {
+  if (energy >= 100000) {
+    return "MAX";
+  }
+  if (energy >= 1000) {
+    const k = energy / 1000;
+    return k % 1 === 0 ? `${k}K` : `${k.toFixed(1)}K`;
+  }
+  return energy.toString();
 }
 
 export function MusicCard({ card, onDelete, showDelete = true }: MusicCardProps) {
@@ -112,7 +124,12 @@ export function MusicCard({ card, onDelete, showDelete = true }: MusicCardProps)
                     <Zap className="h-4 w-4 text-primary flex-shrink-0" />
                     <span className="text-xs text-muted-foreground">Energy</span>
                   </div>
-                  <span className="text-lg font-bold text-primary text-right ml-2">{card.energy}</span>
+                  <span className={cn(
+                    "text-lg font-bold text-right ml-2",
+                    card.energy >= 100000 ? "text-yellow-400" : "text-primary"
+                  )}>
+                    {formatEnergy(card.energy)}
+                  </span>
                 </div>
 
                 <div className="flex items-center justify-between rounded-lg bg-muted/30 p-2.5">

@@ -9,12 +9,14 @@ interface TradeDetailModalProps {
   open: boolean
   onOpenChange: (open: boolean) => void
   trade: {
-    id: number
+    id: number | string
     from: string
-    status: "pending" | "accepted" | "declined"
+    status: "pending" | "accepted" | "declined" | "expired"
     timestamp: string
+    expiresAt?: string
+    isSent?: boolean
     offering: Array<{
-      id: number
+      id: number | string
       songName: string
       artistName: string
       albumArtUrl?: string
@@ -22,7 +24,7 @@ interface TradeDetailModalProps {
       energy: number
     }>
     requesting: Array<{
-      id: number
+      id: number | string
       songName: string
       artistName: string
       albumArtUrl?: string
@@ -30,16 +32,22 @@ interface TradeDetailModalProps {
       energy: number
     }>
   }
+  isSent?: boolean // Whether current user sent this trade
   onAccept?: () => void
   onDecline?: () => void
 }
 
-export function TradeDetailModal({ open, onOpenChange, trade, onAccept, onDecline }: TradeDetailModalProps) {
+export function TradeDetailModal({ open, onOpenChange, trade, isSent, onAccept, onDecline }: TradeDetailModalProps) {
+  // Determine if this is a sent trade (from prop or trade.isSent)
+  const isTradeFromCurrentUser = isSent ?? trade.isSent ?? false
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-2xl bg-card border-border">
         <DialogHeader>
-          <DialogTitle>Trade Details with {trade.from}</DialogTitle>
+          <DialogTitle>
+            {isTradeFromCurrentUser ? `Trade sent to ${trade.from}` : `Trade Details with ${trade.from}`}
+          </DialogTitle>
         </DialogHeader>
 
         <div className="space-y-4 py-4">
@@ -82,7 +90,7 @@ export function TradeDetailModal({ open, onOpenChange, trade, onAccept, onDeclin
             </div>
           </div>
 
-          {trade.status === "pending" && (
+          {trade.status === "pending" && !isTradeFromCurrentUser && (
             <div className="flex gap-3 border-t border-border pt-4 px-4">
               <Button onClick={onAccept} className="flex-1">
                 Accept
@@ -90,6 +98,12 @@ export function TradeDetailModal({ open, onOpenChange, trade, onAccept, onDeclin
               <Button onClick={onDecline} variant="outline" className="flex-1 bg-transparent">
                 Decline
               </Button>
+            </div>
+          )}
+
+          {trade.status === "expired" && (
+            <div className="border-t border-border pt-4 px-4 text-center text-muted-foreground">
+              <p>This trade has expired</p>
             </div>
           )}
         </div>
