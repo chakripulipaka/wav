@@ -299,7 +299,7 @@ export default function AnalyticsPage() {
                   className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
                     timeScale === scale
                       ? "bg-primary text-primary-foreground"
-                      : "bg-muted text-muted-foreground hover:bg-muted/80"
+                      : "bg-muted text-muted-foreground hover:bg-muted/80 hover:shadow-[0_0_15px_rgba(255,92,147,0.25)]"
                   }`}
                 >
                   {scale === "day" ? "1 Day" : scale === "week" ? "7 Days" : "30 Days"}
@@ -566,7 +566,7 @@ export default function AnalyticsPage() {
                           avatar_url: user.avatar_url
                         })
                       }}
-                      className="cursor-pointer border-border bg-card p-4 transition-all hover:border-primary hover:bg-card/80"
+                      className="cursor-pointer border-border bg-card p-4 transition-all hover:border-primary hover:bg-card/80 hover:shadow-[0_0_20px_rgba(255,92,147,0.3)]"
                     >
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-3">
@@ -655,7 +655,7 @@ export default function AnalyticsPage() {
                         bpm: card.bpm,
                         genre: card.genre
                       })}
-                      className="cursor-pointer border-border bg-card p-4 transition-all hover:border-primary hover:bg-card/80"
+                      className="cursor-pointer border-border bg-card p-4 transition-all hover:border-primary hover:bg-card/80 hover:shadow-[0_0_20px_rgba(255,92,147,0.3)]"
                     >
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-3">
@@ -672,15 +672,9 @@ export default function AnalyticsPage() {
                             <p className="text-xs text-muted-foreground">{card.artist_name}</p>
                           </div>
                         </div>
-                        <div className="flex gap-4 text-right">
-                          <div>
-                            <p className="text-xs text-muted-foreground">Momentum</p>
-                            <p className="font-bold text-primary">{card.momentum}</p>
-                          </div>
-                          <div>
-                            <p className="text-xs text-muted-foreground">Owned By</p>
-                            <p className="font-bold text-secondary">{card.num_owned}</p>
-                          </div>
+                        <div className="text-right">
+                          <p className="text-xs text-muted-foreground">Momentum</p>
+                          <p className="font-bold text-secondary">{card.momentum}</p>
                         </div>
                       </div>
                     </Card>

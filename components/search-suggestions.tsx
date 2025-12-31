@@ -43,7 +43,7 @@ export function SearchSuggestions({
         <button
           key={suggestion.id}
           onClick={() => onSelectSuggestion(suggestion)}
-          className="w-full border-b border-border/50 px-3 py-2.5 text-left hover:bg-muted/50 transition-colors last:border-b-0"
+          className="w-full border-b border-border/50 px-3 py-2.5 text-left hover:bg-muted/50 hover:shadow-[0_0_15px_rgba(255,92,147,0.2)] transition-all last:border-b-0"
         >
           {renderSuggestion ? (
             renderSuggestion(suggestion)

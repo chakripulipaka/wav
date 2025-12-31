@@ -16,6 +16,8 @@ export default function ProfilePage() {
   const [isEditing, setIsEditing] = useState(false)
   const [isUploading, setIsUploading] = useState(false)
   const [uploadError, setUploadError] = useState<string | null>(null)
+  const [isSaving, setIsSaving] = useState(false)
+  const [saveError, setSaveError] = useState<string | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   const [formData, setFormData] = useState({
@@ -33,9 +35,27 @@ export default function ProfilePage() {
     }))
   }
 
-  const handleSave = () => {
-    // TODO: Implement profile update API
+  const handleSave = async () => {
+    if (!user) return
+
+    setIsSaving(true)
+    setSaveError(null)
+
+    const result = await usersApi.updateProfile(user.id, {
+      deck_privacy: formData.deckPrivacy,
+      trade_privacy: formData.tradePrivacy,
+    })
+
+    if (result.error) {
+      setSaveError(result.error)
+      setIsSaving(false)
+      return
+    }
+
+    // Refresh user data to update the displayed values
+    await refreshUser()
     setIsEditing(false)
+    setIsSaving(false)
   }
 
   const handleCancel = () => {
@@ -259,13 +279,33 @@ export default function ProfilePage() {
           </div>
 
           {/* Action Buttons */}
-          <div className="flex gap-4 pt-4">
+          <div className="flex flex-col gap-4 pt-4">
+            {saveError && (
+              <p className="text-sm text-destructive text-center">{saveError}</p>
+            )}
+            <div className="flex gap-4">
             {isEditing ? (
               <>
-                <Button onClick={handleSave} className="flex-1 bg-primary hover:bg-primary/90">
-                  Save Changes
+                <Button
+                  onClick={handleSave}
+                  disabled={isSaving}
+                  className="flex-1 bg-primary hover:bg-primary/90"
+                >
+                  {isSaving ? (
+                    <>
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      Saving...
+                    </>
+                  ) : (
+                    'Save Changes'
+                  )}
                 </Button>
-                <Button onClick={handleCancel} variant="outline" className="flex-1 bg-transparent">
+                <Button
+                  onClick={handleCancel}
+                  disabled={isSaving}
+                  variant="outline"
+                  className="flex-1 bg-transparent"
+                >
                   Cancel
                 </Button>
               </>
@@ -280,6 +320,7 @@ export default function ProfilePage() {
                 </Button>
               </>
             )}
+            </div>
           </div>
         </div>
       </div>

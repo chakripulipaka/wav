@@ -40,7 +40,7 @@ export function TradeCardCompact({ card }: TradeCardCompactProps) {
         <Card
           className={cn(
             "overflow-hidden border-border backface-hidden p-0",
-            "bg-card transition-all hover:border-primary hover:shadow-lg hover:shadow-primary/20",
+            "bg-card transition-all hover:border-primary hover:shadow-[0_0_20px_rgba(255,92,147,0.3)]",
             "absolute inset-0",
           )}
           style={{

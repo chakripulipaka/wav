@@ -99,7 +99,7 @@ export default function AllTradeOffersPage() {
               key={trade.id}
               onClick={() => setSelectedTradeDetail(trade)}
               className={cn(
-                "border-l-4 bg-muted/30 p-6 transition-all hover:bg-muted/50 cursor-pointer",
+                "border-l-4 bg-muted/30 p-6 transition-all hover:bg-muted/50 hover:shadow-[0_0_20px_rgba(255,92,147,0.3)] cursor-pointer",
                 trade.status === "pending" && !trade.isSent && "border-l-orange-500",
                 trade.status === "pending" && trade.isSent && "border-l-blue-500",
                 trade.status === "accepted" && "border-l-green-500",

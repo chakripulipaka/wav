@@ -130,7 +130,7 @@ export default function LandingPage() {
                   {leaderboard.map((entry, index) => (
                     <div
                       key={entry.id}
-                      className="flex items-center justify-between rounded-lg bg-muted/30 p-4 transition-colors hover:bg-muted/50"
+                      className="flex items-center justify-between rounded-lg bg-muted/30 p-4 transition-all hover:bg-muted/50 hover:shadow-[0_0_20px_rgba(255,92,147,0.3)]"
                     >
                       <div className="flex items-center gap-4">
                         <div
@@ -174,7 +174,7 @@ export default function LandingPage() {
                   {trendingCards.map((card) => (
                     <div
                       key={card.id}
-                      className="group relative overflow-hidden rounded-lg border border-border bg-muted/30 transition-all hover:scale-105 hover:border-primary hover:shadow-lg hover:shadow-primary/20"
+                      className="group relative overflow-hidden rounded-lg border border-border bg-muted/30 transition-all hover:scale-105 hover:border-primary hover:shadow-[0_0_20px_rgba(255,92,147,0.3)]"
                     >
                       <div className="aspect-square">
                         <img

@@ -67,7 +67,7 @@ export function MusicCard({ card, onDelete, showDelete = true }: MusicCardProps)
           <Card
             className={cn(
               "overflow-hidden border-border backface-hidden p-0",
-              "bg-card transition-all hover:border-primary hover:shadow-lg hover:shadow-primary/20",
+              "bg-card transition-all hover:border-primary hover:shadow-[0_0_20px_rgba(255,92,147,0.3)]",
             )}
             style={{
               backfaceVisibility: "hidden",

@@ -35,7 +35,7 @@ export function Navigation() {
   return (
     <nav className="sticky top-0 z-50 border-b border-border bg-background/80 backdrop-blur-lg">
       <div className="flex h-16 items-center justify-between px-6">
-        <Link href={isAuthenticated ? "/deck" : "/"} className="flex items-center gap-3 flex-shrink-0">
+        <Link href={isAuthenticated ? "/deck" : "/"} className="flex items-center gap-3 flex-shrink-0 transition-all hover:shadow-[0_0_15px_rgba(255,92,147,0.3)]">
           <div className="flex items-center gap-0 text-lg font-bold">
             <span className="text-white">W</span>
             <span className="text-primary">AV</span>
@@ -65,7 +65,7 @@ export function Navigation() {
                   "flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium transition-all",
                   isActive
                     ? "bg-primary text-primary-foreground"
-                    : "text-muted-foreground hover:bg-muted hover:text-foreground",
+                    : "text-muted-foreground hover:bg-muted hover:text-foreground hover:shadow-[0_0_15px_rgba(255,92,147,0.25)]",
                 )}
               >
                 <Icon className="h-4 w-4" />
@@ -78,7 +78,7 @@ export function Navigation() {
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <button
-              className="flex h-10 w-10 items-center justify-center rounded-full bg-primary text-primary-foreground font-bold text-sm hover:opacity-80 transition-opacity flex-shrink-0 overflow-hidden"
+              className="flex h-10 w-10 items-center justify-center rounded-full bg-primary text-primary-foreground font-bold text-sm hover:opacity-90 hover:shadow-[0_0_15px_rgba(255,92,147,0.4)] transition-all flex-shrink-0 overflow-hidden"
               title={username}
             >
               {user?.avatar_url ? (

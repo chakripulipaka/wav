@@ -468,3 +468,28 @@ export async function updateUserAvatar(userId: string, avatarUrl: string): Promi
 
   return data;
 }
+
+// Update user profile fields (privacy settings, etc.)
+export async function updateUserProfile(
+  userId: string,
+  updates: {
+    deck_privacy?: 'public' | 'private';
+    trade_privacy?: 'public' | 'private';
+  }
+): Promise<Profile | null> {
+  const supabase = getSupabaseAdminClient();
+
+  const { data, error } = await supabase
+    .from('profiles')
+    .update(updates)
+    .eq('id', userId)
+    .select()
+    .single();
+
+  if (error) {
+    console.error('Error updating user profile:', error);
+    return null;
+  }
+
+  return data;
+}

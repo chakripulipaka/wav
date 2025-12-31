@@ -106,6 +106,16 @@ export const usersApi = {
       return { error: 'Network error. Please try again.' };
     }
   },
+
+  async updateProfile(
+    userId: string,
+    updates: { deck_privacy?: string; trade_privacy?: string }
+  ): Promise<ApiResponse<{ user: Omit<Profile, 'password_hash'> }>> {
+    return apiFetch(`/api/users/${userId}`, {
+      method: 'PUT',
+      body: JSON.stringify(updates),
+    });
+  },
 };
 
 // Cards API

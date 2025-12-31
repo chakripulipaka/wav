@@ -273,7 +273,7 @@ export default function TradePage() {
                     key={trade.id}
                     onClick={() => setSelectedTradeDetail(trade)}
                     className={cn(
-                      "border-l-4 bg-muted/30 p-4 transition-all hover:bg-muted/50 cursor-pointer",
+                      "border-l-4 bg-muted/30 p-4 transition-all hover:bg-muted/50 hover:shadow-[0_0_20px_rgba(255,92,147,0.3)] cursor-pointer",
                       trade.status === "pending" && "border-l-orange-500",
                       trade.status === "accepted" && "border-l-green-500",
                       (trade.status === "declined" || trade.status === "expired") && "border-l-destructive",
@@ -425,7 +425,7 @@ export default function TradePage() {
                     key={trade.id}
                     onClick={() => setSelectedTradeDetail(trade)}
                     className={cn(
-                      "border-l-4 bg-muted/30 p-4 transition-all hover:bg-muted/50 cursor-pointer",
+                      "border-l-4 bg-muted/30 p-4 transition-all hover:bg-muted/50 hover:shadow-[0_0_20px_rgba(255,92,147,0.3)] cursor-pointer",
                       trade.status === "pending" && "border-l-blue-500",
                       trade.status === "accepted" && "border-l-green-500",
                       (trade.status === "declined" || trade.status === "expired") && "border-l-destructive",
@@ -580,7 +580,7 @@ export default function TradePage() {
                           onMouseEnter={(e) => handleCardMouseEnter(e, card.id)}
                           onMouseLeave={() => setHoveredCard(null)}
                           className={cn(
-                            "cursor-pointer rounded-lg border-2 bg-muted/30 p-4 transition-all hover:bg-muted/50",
+                            "cursor-pointer rounded-lg border-2 bg-muted/30 p-4 transition-all hover:bg-muted/50 hover:shadow-[0_0_15px_rgba(255,92,147,0.25)]",
                             mySelectedCards.includes(card.id) ? "border-primary bg-primary/10" : "border-transparent",
                           )}
                         >
@@ -643,7 +643,7 @@ export default function TradePage() {
                           onMouseEnter={(e) => handleCardMouseEnter(e, card.id)}
                           onMouseLeave={() => setHoveredCard(null)}
                           className={cn(
-                            "cursor-pointer rounded-lg border-2 bg-muted/30 p-4 transition-all hover:bg-muted/50",
+                            "cursor-pointer rounded-lg border-2 bg-muted/30 p-4 transition-all hover:bg-muted/50 hover:shadow-[0_0_15px_rgba(255,92,147,0.25)]",
                             theirSelectedCards.includes(card.id)
                               ? "border-secondary bg-secondary/10"
                               : "border-transparent",
