@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getUserById, ensureTodayStats, getDailyStats } from '@/lib/supabase';
+import { getUserById, ensureTodayStats, getDailyStats, recalculateUserEnergy, getSupabaseAdminClient } from '@/lib/supabase';
 import { getAuthenticatedUser } from '@/lib/auth';
 import type { HistoricalDataPoint } from '@/lib/types';
 
@@ -55,6 +55,25 @@ export async function GET(
       energy: stat.energy,
       momentum: stat.momentum,
     }));
+
+    // For today's data point, recalculate energy in real-time to ensure consistency
+    const today = new Date().toISOString().split('T')[0];
+    const todayIndex = historicalData.findIndex(d => d.date === today);
+
+    if (todayIndex >= 0) {
+      // Recalculate user's energy in real-time
+      const { energy: freshEnergy, momentum: freshMomentum } = await recalculateUserEnergy(userId);
+      historicalData[todayIndex].energy = freshEnergy;
+      historicalData[todayIndex].momentum = freshMomentum;
+
+      // Also update today's daily stats record so it stays in sync
+      const supabase = getSupabaseAdminClient();
+      await supabase
+        .from('user_daily_stats')
+        .update({ energy: freshEnergy, momentum: freshMomentum })
+        .eq('user_id', userId)
+        .eq('date', today);
+    }
 
     return NextResponse.json({
       data: historicalData,

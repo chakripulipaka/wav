@@ -4,8 +4,7 @@ import { useState, useEffect } from "react"
 import { Navigation } from "@/components/navigation"
 import { Input } from "@/components/ui/input"
 import { Card } from "@/components/ui/card"
-import { Search, User, Music2, Zap, TrendingUp, Lock, Loader2, ArrowLeftRight } from "lucide-react"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Search, Music2, Zap, TrendingUp, Lock, Loader2, ArrowLeftRight } from "lucide-react"
 import { MusicCard } from "@/components/music-card"
 import { SearchSuggestions } from "@/components/search-suggestions"
 import { AnalyticsChart } from "@/components/analytics-chart"
@@ -38,9 +37,12 @@ interface SelectedCard {
 }
 
 export default function AnalyticsPage() {
-  const [searchType, setSearchType] = useState<"users" | "cards">("users")
-  const [searchQuery, setSearchQuery] = useState("")
-  const [showSuggestions, setShowSuggestions] = useState(false)
+  // Separate search state for users and cards
+  const [userSearchQuery, setUserSearchQuery] = useState("")
+  const [showUserSuggestions, setShowUserSuggestions] = useState(false)
+  const [cardSearchQuery, setCardSearchQuery] = useState("")
+  const [showCardSuggestions, setShowCardSuggestions] = useState(false)
+
   const [selectedUser, setSelectedUser] = useState<SelectedUser | null>(null)
   const [selectedCard, setSelectedCard] = useState<SelectedCard | null>(null)
   const [timeScale, setTimeScale] = useState<"day" | "week" | "month">("month")
@@ -117,9 +119,9 @@ export default function AnalyticsPage() {
     fetchUserData()
   }, [selectedUser, timeScale])
 
-  const handleSearch = () => {
-    if (searchType === "users" && searchQuery) {
-      const user = topUsers.find((u) => u.username.toLowerCase().includes(searchQuery.toLowerCase()))
+  const handleUserSearch = () => {
+    if (userSearchQuery) {
+      const user = topUsers.find((u) => u.username.toLowerCase().includes(userSearchQuery.toLowerCase()))
       if (user) {
         setSelectedUser({
           id: user.id,
@@ -129,10 +131,14 @@ export default function AnalyticsPage() {
           avatar_url: user.avatar_url
         })
         setSelectedCard(null)
-        setShowSuggestions(false)
+        setShowUserSuggestions(false)
       }
-    } else if (searchType === "cards" && searchQuery) {
-      const card = topCards.find((c) => c.song_name.toLowerCase().includes(searchQuery.toLowerCase()))
+    }
+  }
+
+  const handleCardSearch = () => {
+    if (cardSearchQuery) {
+      const card = topCards.find((c) => c.song_name.toLowerCase().includes(cardSearchQuery.toLowerCase()))
       if (card) {
         setSelectedCard({
           id: card.id,
@@ -146,13 +152,13 @@ export default function AnalyticsPage() {
           genre: card.genre
         })
         setSelectedUser(null)
-        setShowSuggestions(false)
+        setShowCardSuggestions(false)
       }
     }
   }
 
   const handleSelectUserSuggestion = (suggestion: any) => {
-    setSearchQuery(suggestion.username)
+    setUserSearchQuery(suggestion.username)
     setSelectedUser({
       id: suggestion.id,
       username: suggestion.username,
@@ -161,11 +167,11 @@ export default function AnalyticsPage() {
       avatar_url: suggestion.avatar_url
     })
     setSelectedCard(null)
-    setShowSuggestions(false)
+    setShowUserSuggestions(false)
   }
 
   const handleSelectCardSuggestion = (suggestion: any) => {
-    setSearchQuery(suggestion.song_name)
+    setCardSearchQuery(suggestion.song_name)
     setSelectedCard({
       id: suggestion.id,
       songName: suggestion.song_name,
@@ -178,7 +184,7 @@ export default function AnalyticsPage() {
       genre: suggestion.genre
     })
     setSelectedUser(null)
-    setShowSuggestions(false)
+    setShowCardSuggestions(false)
   }
 
   // Get label for the current time scale
@@ -193,76 +199,6 @@ export default function AnalyticsPage() {
       <Navigation />
 
       <div className="mx-auto max-w-7xl px-6 py-8">
-        <div className="mb-8 flex gap-4">
-          <Select
-            value={searchType}
-            onValueChange={(value: "users" | "cards") => {
-              setSearchType(value)
-              setSelectedUser(null)
-              setSelectedCard(null)
-              setSearchQuery("")
-              setShowSuggestions(false)
-            }}
-          >
-            <SelectTrigger className="w-[180px] bg-card border-border">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="users">
-                <div className="flex items-center gap-2">
-                  <User className="h-4 w-4" />
-                  User Stats
-                </div>
-              </SelectItem>
-              <SelectItem value="cards">
-                <div className="flex items-center gap-2">
-                  <Music2 className="h-4 w-4" />
-                  Card Stats
-                </div>
-              </SelectItem>
-            </SelectContent>
-          </Select>
-
-          <div className="relative flex-1">
-            <Search className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-muted-foreground" />
-            <Input
-              placeholder={searchType === "users" ? "Search for a user..." : "Search for a card..."}
-              value={searchQuery}
-              onChange={(e) => {
-                setSearchQuery(e.target.value)
-                setShowSuggestions(e.target.value.length > 0)
-              }}
-              onKeyDown={(e) => e.key === "Enter" && handleSearch()}
-              onFocus={() => searchQuery.length > 0 && setShowSuggestions(true)}
-              className="pl-10 bg-card border-border"
-            />
-            {searchType === "users" && topUsers.length > 0 && (
-              <SearchSuggestions
-                suggestions={topUsers.map((u) => ({
-                  ...u,
-                  label: u.username,
-                  sublabel: `${u.cards_collected} cards • ${u.total_energy} energy`,
-                }))}
-                searchQuery={searchQuery}
-                isOpen={showSuggestions}
-                onSelectSuggestion={handleSelectUserSuggestion}
-              />
-            )}
-            {searchType === "cards" && topCards.length > 0 && (
-              <SearchSuggestions
-                suggestions={topCards.map((c) => ({
-                  ...c,
-                  label: c.song_name,
-                  sublabel: `${c.artist_name} • ${c.momentum} momentum`,
-                }))}
-                searchQuery={searchQuery}
-                isOpen={showSuggestions}
-                onSelectSuggestion={handleSelectCardSuggestion}
-              />
-            )}
-          </div>
-        </div>
-
         {loading ? (
           <div className="flex items-center justify-center py-12">
             <p className="text-muted-foreground">Loading...</p>
@@ -559,103 +495,167 @@ export default function AnalyticsPage() {
             </div>
           </div>
         ) : (
-          /* Search Results View */
-          <div className="space-y-6">
-            {searchType === "users" ? (
-              topUsers.length > 0 ? (
-                <>
-                  <h2 className="text-2xl font-bold">Top Users</h2>
-                  <div className="grid gap-4">
-                    {topUsers.map((user, index) => (
-                      <Card
-                        key={user.id}
-                        onClick={() => {
-                          setSelectedUser({
-                            id: user.id,
-                            username: user.username,
-                            total_energy: user.total_energy,
-                            cards_collected: user.cards_collected,
-                            avatar_url: user.avatar_url
-                          })
-                        }}
-                        className="cursor-pointer border-border bg-card p-6 transition-all hover:border-primary hover:bg-card/80"
-                      >
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center gap-4">
-                            <div className="flex h-12 w-12 items-center justify-center rounded-full bg-gradient-to-br from-primary to-secondary font-bold text-black">
-                              #{index + 1}
-                            </div>
-                            <div>
-                              <h3 className="text-lg font-bold">{user.username}</h3>
-                              <p className="text-sm text-muted-foreground">{user.cards_collected} cards</p>
-                            </div>
+          /* Split-Screen Search View */
+          <div className="grid gap-8 lg:grid-cols-2">
+            {/* Left Side - User Search */}
+            <div className="space-y-4">
+              <h2 className="text-2xl font-bold">
+                Top Users
+              </h2>
+
+              {/* User search input */}
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-muted-foreground" />
+                <Input
+                  placeholder="Search for a user..."
+                  value={userSearchQuery}
+                  onChange={(e) => {
+                    setUserSearchQuery(e.target.value)
+                    setShowUserSuggestions(e.target.value.length > 0)
+                  }}
+                  onKeyDown={(e) => e.key === "Enter" && handleUserSearch()}
+                  onFocus={() => userSearchQuery.length > 0 && setShowUserSuggestions(true)}
+                  className="pl-10 bg-card border-border"
+                />
+                {topUsers.length > 0 && (
+                  <SearchSuggestions
+                    suggestions={topUsers.map((u) => ({
+                      ...u,
+                      label: u.username,
+                      sublabel: `${u.cards_collected} cards • ${u.total_energy} energy`,
+                    }))}
+                    searchQuery={userSearchQuery}
+                    isOpen={showUserSuggestions}
+                    onSelectSuggestion={handleSelectUserSuggestion}
+                  />
+                )}
+              </div>
+
+              {/* Top users list */}
+              {topUsers.length > 0 ? (
+                <div className="grid gap-3">
+                  {topUsers.map((user, index) => (
+                    <Card
+                      key={user.id}
+                      onClick={() => {
+                        setSelectedUser({
+                          id: user.id,
+                          username: user.username,
+                          total_energy: user.total_energy,
+                          cards_collected: user.cards_collected,
+                          avatar_url: user.avatar_url
+                        })
+                      }}
+                      className="cursor-pointer border-border bg-card p-4 transition-all hover:border-primary hover:bg-card/80"
+                    >
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-3">
+                          <div className="flex h-10 w-10 items-center justify-center rounded-full bg-gradient-to-br from-primary to-secondary font-bold text-black text-sm">
+                            #{index + 1}
                           </div>
-                          <div className="text-right">
-                            <p className="text-sm text-muted-foreground">Energy</p>
-                            <p className="text-xl font-bold text-primary">{user.total_energy.toLocaleString()}</p>
+                          <div>
+                            <h3 className="font-bold">{user.username}</h3>
+                            <p className="text-xs text-muted-foreground">{user.cards_collected} cards</p>
                           </div>
                         </div>
-                      </Card>
-                    ))}
-                  </div>
-                </>
+                        <div className="text-right">
+                          <p className="text-xs text-muted-foreground">Energy</p>
+                          <p className="font-bold text-primary">{user.total_energy.toLocaleString()}</p>
+                        </div>
+                      </div>
+                    </Card>
+                  ))}
+                </div>
               ) : (
-                <div className="text-center py-12">
+                <div className="text-center py-8">
                   <p className="text-muted-foreground">No users found.</p>
                 </div>
-              )
-            ) : (
-              topCards.length > 0 ? (
-                <>
-                  <h2 className="text-2xl font-bold">Top Cards</h2>
-                  <div className="grid gap-4">
-                    {topCards.map((card, index) => (
-                      <Card
-                        key={card.id}
-                        onClick={() => setSelectedCard({
-                          id: card.id,
-                          songName: card.song_name,
-                          artistName: card.artist_name,
-                          albumArtUrl: card.album_art_url,
-                          momentum: card.momentum,
-                          energy: card.energy,
-                          numOwned: card.num_owned,
-                          bpm: card.bpm,
-                          genre: card.genre
-                        })}
-                        className="cursor-pointer border-border bg-card p-6 transition-all hover:border-primary hover:bg-card/80"
-                      >
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center gap-4">
-                            <div className="flex h-12 w-12 items-center justify-center rounded-full bg-gradient-to-br from-primary to-secondary font-bold text-black">
-                              #{index + 1}
-                            </div>
-                            <div>
-                              <h3 className="text-lg font-bold">{card.song_name}</h3>
-                              <p className="text-sm text-muted-foreground">{card.artist_name}</p>
-                            </div>
+              )}
+            </div>
+
+            {/* Right Side - Card Search */}
+            <div className="space-y-4">
+              <h2 className="text-2xl font-bold">
+                Top Cards
+              </h2>
+
+              {/* Card search input */}
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-muted-foreground" />
+                <Input
+                  placeholder="Search for a card..."
+                  value={cardSearchQuery}
+                  onChange={(e) => {
+                    setCardSearchQuery(e.target.value)
+                    setShowCardSuggestions(e.target.value.length > 0)
+                  }}
+                  onKeyDown={(e) => e.key === "Enter" && handleCardSearch()}
+                  onFocus={() => cardSearchQuery.length > 0 && setShowCardSuggestions(true)}
+                  className="pl-10 bg-card border-border"
+                />
+                {topCards.length > 0 && (
+                  <SearchSuggestions
+                    suggestions={topCards.map((c) => ({
+                      ...c,
+                      label: c.song_name,
+                      sublabel: `${c.artist_name} • ${c.momentum} momentum`,
+                    }))}
+                    searchQuery={cardSearchQuery}
+                    isOpen={showCardSuggestions}
+                    onSelectSuggestion={handleSelectCardSuggestion}
+                  />
+                )}
+              </div>
+
+              {/* Top cards list */}
+              {topCards.length > 0 ? (
+                <div className="grid gap-3">
+                  {topCards.map((card, index) => (
+                    <Card
+                      key={card.id}
+                      onClick={() => setSelectedCard({
+                        id: card.id,
+                        songName: card.song_name,
+                        artistName: card.artist_name,
+                        albumArtUrl: card.album_art_url,
+                        momentum: card.momentum,
+                        energy: card.energy,
+                        numOwned: card.num_owned,
+                        bpm: card.bpm,
+                        genre: card.genre
+                      })}
+                      className="cursor-pointer border-border bg-card p-4 transition-all hover:border-primary hover:bg-card/80"
+                    >
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-3">
+                          <div className="flex h-10 w-10 items-center justify-center rounded-full bg-gradient-to-br from-primary to-secondary font-bold text-black text-sm">
+                            #{index + 1}
                           </div>
-                          <div className="flex gap-6 text-right">
-                            <div>
-                              <p className="text-sm text-muted-foreground">Momentum</p>
-                              <p className="text-xl font-bold text-primary">{card.momentum}</p>
-                            </div>
-                            <div>
-                              <p className="text-sm text-muted-foreground">Owned By</p>
-                              <p className="text-xl font-bold text-secondary">{card.num_owned}</p>
-                            </div>
+                          <div>
+                            <h3 className="font-bold">{card.song_name}</h3>
+                            <p className="text-xs text-muted-foreground">{card.artist_name}</p>
                           </div>
                         </div>
-                      </Card>
-                    ))}
-                  </div>
-                </>
+                        <div className="flex gap-4 text-right">
+                          <div>
+                            <p className="text-xs text-muted-foreground">Momentum</p>
+                            <p className="font-bold text-primary">{card.momentum}</p>
+                          </div>
+                          <div>
+                            <p className="text-xs text-muted-foreground">Owned By</p>
+                            <p className="font-bold text-secondary">{card.num_owned}</p>
+                          </div>
+                        </div>
+                      </div>
+                    </Card>
+                  ))}
+                </div>
               ) : (
-                <div className="text-center py-12">
+                <div className="text-center py-8">
                   <p className="text-muted-foreground">No cards found.</p>
                 </div>
-              )
-            )}
+              )}
+            </div>
           </div>
         )}
       </div>

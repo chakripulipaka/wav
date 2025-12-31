@@ -1,7 +1,7 @@
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import { createServerClient } from '@supabase/ssr';
 import { cookies } from 'next/headers';
-import type { Profile, Card, UserCard, Trade, TradeCard, Unboxing, UserDailyStats } from './types';
+import type { Profile, Card, UserCard, Trade, TradeCard, Unboxing, UserDailyStats, LeaderboardEntry } from './types';
 import { calculateEnergy } from './types';
 
 // Database schema type for Supabase
@@ -212,19 +212,69 @@ export async function checkUserOwnsCard(userId: string, cardId: string): Promise
   return !!data;
 }
 
-export async function getLeaderboard(limit: number = 10) {
+// Recalculate a user's energy in real-time and update their profile
+export async function recalculateUserEnergy(userId: string): Promise<{ energy: number; momentum: number; cardsCount: number }> {
+  const userCards = await getUserCards(userId);
+  let totalEnergy = 0;
+  let totalMomentum = 0;
+
+  for (const uc of userCards) {
+    if (uc.card) {
+      totalEnergy += calculateEnergy(uc.card.momentum, uc.card.created_at);
+      totalMomentum += uc.card.momentum;
+    }
+  }
+
+  // Update profiles table with fresh values
   const supabase = getSupabaseAdminClient();
-  const { data, error } = await supabase
+  await supabase
     .from('profiles')
-    .select('id, username, avatar_url, total_energy, cards_collected')
-    .order('total_energy', { ascending: false })
-    .limit(limit);
+    .update({
+      total_energy: totalEnergy,
+      total_momentum: totalMomentum,
+      cards_collected: userCards.length,
+    })
+    .eq('id', userId);
+
+  return { energy: totalEnergy, momentum: totalMomentum, cardsCount: userCards.length };
+}
+
+// Get leaderboard with real-time energy calculation for all users
+export async function getLeaderboard(limit: number = 10): Promise<LeaderboardEntry[]> {
+  const supabase = getSupabaseAdminClient();
+
+  // Get all users
+  const { data: users, error } = await supabase
+    .from('profiles')
+    .select('id, username, avatar_url, cards_collected');
 
   if (error) {
-    console.error('Error fetching leaderboard:', error);
+    console.error('Error fetching users for leaderboard:', error);
     return [];
   }
-  return data || [];
+
+  if (!users || users.length === 0) {
+    return [];
+  }
+
+  // Recalculate energy for each user in parallel
+  const leaderboardEntries = await Promise.all(
+    users.map(async (user) => {
+      const { energy, cardsCount } = await recalculateUserEnergy(user.id);
+      return {
+        id: user.id,
+        username: user.username,
+        avatar_url: user.avatar_url,
+        total_energy: energy,
+        cards_collected: cardsCount,
+      };
+    })
+  );
+
+  // Sort by energy descending and limit
+  return leaderboardEntries
+    .sort((a, b) => b.total_energy - a.total_energy)
+    .slice(0, limit);
 }
 
 // Export convenience accessors

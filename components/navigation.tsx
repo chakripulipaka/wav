@@ -46,10 +46,21 @@ export function Navigation() {
           {navItems.map((item) => {
             const Icon = item.icon
             const isActive = pathname === item.href
+            const isAnalytics = item.href === "/analytics"
+
+            // Special handling for Analytics link - force full reload when clicked while already on analytics
+            const handleClick = (e: React.MouseEvent) => {
+              if (isAnalytics && pathname === "/analytics") {
+                e.preventDefault()
+                window.location.href = "/analytics"
+              }
+            }
+
             return (
               <Link
                 key={item.href}
                 href={item.href}
+                onClick={handleClick}
                 className={cn(
                   "flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium transition-all",
                   isActive
