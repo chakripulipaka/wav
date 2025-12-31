@@ -289,7 +289,7 @@ export default function AnalyticsPage() {
             </div>
 
             {/* Stats Cards */}
-            <div className="grid gap-6 md:grid-cols-4">
+            <div className="grid gap-6 md:grid-cols-3">
               <Card className="border-border bg-card p-6">
                 <div className="flex items-center gap-3">
                   <div className="flex h-12 w-12 items-center justify-center rounded-full bg-primary/10">
@@ -332,19 +332,6 @@ export default function AnalyticsPage() {
                 </div>
               </Card>
 
-              <Card className="border-border bg-card p-6">
-                <div className="flex items-center gap-3">
-                  <div className="flex h-12 w-12 items-center justify-center rounded-full bg-orange-500/10">
-                    <Music2 className="h-6 w-6 text-orange-500" />
-                  </div>
-                  <div>
-                    <p className="text-sm text-muted-foreground">Avg BPM</p>
-                    <p className="text-2xl font-bold text-orange-500">
-                      {userAnalytics?.avgBpm ?? 0}
-                    </p>
-                  </div>
-                </div>
-              </Card>
             </div>
 
             {/* Time Scale Controls */}
@@ -434,9 +421,9 @@ export default function AnalyticsPage() {
                     </div>
                   </div>
                 </Card>
-              ) : userAnalytics?.recentTrades && userAnalytics.recentTrades.length > 0 ? (
+              ) : userAnalytics?.recentTrades && userAnalytics.recentTrades.filter(t => t.status === 'accepted').length > 0 ? (
                 <div className="space-y-4">
-                  {userAnalytics.recentTrades.slice(0, 5).map((trade) => {
+                  {userAnalytics.recentTrades.filter(t => t.status === 'accepted').slice(0, 5).map((trade) => {
                     const isSender = trade.sender_id === selectedUser.id
                     const otherUser = isSender ? trade.receiver : trade.sender
                     const userCards = isSender ? trade.sender_cards : trade.receiver_cards
