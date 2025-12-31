@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useCallback } from "react"
+import { useState, useEffect, useCallback, useMemo } from "react"
 import { Navigation } from "@/components/navigation"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
@@ -26,7 +26,7 @@ export default function UnboxPage() {
   const [selectedTrackIndex, setSelectedTrackIndex] = useState<number | null>(null)
   const [isLoadingTracks, setIsLoadingTracks] = useState(true)
 
-  // Load wheel tracks on mount
+  // Load wheel tracks (used for refresh button)
   const loadWheelTracks = useCallback(async () => {
     setIsLoadingTracks(true)
     setError(null)
@@ -35,26 +35,26 @@ export default function UnboxPage() {
 
     if (result.error) {
       setError(result.error)
-      setIsLoadingTracks(false)
-      setStep("idle")
-      return
-    }
-
-    if (result.data && result.data.tracks.length > 0) {
+    } else if (result.data && result.data.tracks.length > 0) {
       setWheelTracks(result.data.tracks)
-      setIsLoadingTracks(false)
-      setStep("idle")
     } else {
       setError("No tracks available. Please try again.")
-      setIsLoadingTracks(false)
-      setStep("idle")
     }
+
+    setIsLoadingTracks(false)
+    setStep("idle")
   }, [])
 
-  // Check cooldown on mount
+  // Initialize on mount - load cooldown and tracks IN PARALLEL for speed
   useEffect(() => {
     async function initialize() {
-      const cooldownResult = await unboxApi.getCooldown()
+      // Fetch BOTH API calls in parallel (major performance improvement)
+      const [cooldownResult, tracksResult] = await Promise.all([
+        unboxApi.getCooldown(),
+        unboxApi.getWheelTracks()
+      ])
+
+      // Handle cooldown result
       if (cooldownResult.data) {
         if (!cooldownResult.data.canUnbox && cooldownResult.data.nextUnboxTime) {
           setNextUnboxTime(cooldownResult.data.nextUnboxTime)
@@ -62,11 +62,20 @@ export default function UnboxPage() {
         }
       }
 
-      // Load wheel tracks
-      await loadWheelTracks()
+      // Handle tracks result
+      if (tracksResult.error) {
+        setError(tracksResult.error)
+      } else if (tracksResult.data && tracksResult.data.tracks.length > 0) {
+        setWheelTracks(tracksResult.data.tracks)
+      } else {
+        setError("No tracks available. Please try again.")
+      }
+
+      setIsLoadingTracks(false)
+      setStep("idle")
     }
     initialize()
-  }, [loadWheelTracks])
+  }, [])
 
   // Update cooldown timer
   const updateCooldownTimer = (nextTime: string) => {
@@ -94,6 +103,7 @@ export default function UnboxPage() {
   }, [nextUnboxTime])
 
   // Calculate which segment the needle points to based on rotation
+  // This is the inverse of the targetAngle calculation in handleStartSpin
   const calculateSelectedIndex = (finalRotation: number): number => {
     const numSegments = wheelTracks.length
     const segmentAngle = 360 / numSegments
@@ -101,12 +111,10 @@ export default function UnboxPage() {
     // Normalize rotation to 0-360 range
     const normalizedRotation = ((finalRotation % 360) + 360) % 360
 
-    // The needle is at the top. When the wheel rotates clockwise by θ degrees,
-    // the segment that was θ degrees counterclockwise (to the left) is now at the top.
-    // Segment 0 starts at the top (due to -90deg offset in rendering).
-    // So segment index = (360 - normalizedRotation) / segmentAngle, adjusted for segment centers
-    const needlePositionOnWheel = (360 - normalizedRotation + segmentAngle / 2) % 360
-    const index = Math.floor(needlePositionOnWheel / segmentAngle) % numSegments
+    // Inverse of: targetAngle = 360 - (index + 0.5) * segmentAngle
+    // Solving for index: index = (360 - normalizedRotation) / segmentAngle - 0.5
+    const rawIndex = (360 - normalizedRotation) / segmentAngle - 0.5
+    const index = Math.round(rawIndex + numSegments) % numSegments
 
     return index
   }
@@ -123,10 +131,12 @@ export default function UnboxPage() {
     const winningIndex = Math.floor(Math.random() * wheelTracks.length)
     const segmentAngle = 360 / wheelTracks.length
 
-    // Calculate the target rotation to land on the winning segment
-    // To land on segment i, final rotation mod 360 should be: (360 - i * segmentAngle) % 360
-    // This brings segment i's center to the top (under the needle)
-    const targetAngle = (360 - winningIndex * segmentAngle) % 360
+    // Calculate the target rotation to land on the winning segment's CENTER
+    // Segment i's center is at angle: (i * segmentAngle - 90 + segmentAngle/2) = (i + 0.5) * segmentAngle - 90
+    // To bring this to the needle position (-90°/top), we need rotation:
+    // R = -90 - ((i + 0.5) * segmentAngle - 90) = -(i + 0.5) * segmentAngle
+    // Converting to positive: R = 360 - (i + 0.5) * segmentAngle
+    const targetAngle = (360 - (winningIndex + 0.5) * segmentAngle + 360) % 360
 
     // Normalize current rotation to 0-360
     const currentAngle = ((rotation % 360) + 360) % 360
@@ -238,11 +248,45 @@ export default function UnboxPage() {
     return `${secs}s`
   }
 
-  // Truncate song name for display on wheel
-  const truncateSongName = (name: string, maxLength: number = 18): string => {
-    if (name.length <= maxLength) return name
-    return name.substring(0, maxLength - 2) + "..."
-  }
+  // Calculate dynamic font size and positioning based on longest track name
+  // Ensures all names fit within the wheel boundary
+  const wheelTextConfig = useMemo(() => {
+    if (wheelTracks.length === 0) {
+      return { fontSize: 14, startOffset: 55, availableWidth: 180 }
+    }
+
+    // Wheel geometry: 520px wheel = 260px radius
+    const wheelRadius = 260
+    const centerLabelRadius = 48 // Half of 96px center label
+    const edgePadding = 15 // Padding from wheel edge
+
+    // Available radial space for text
+    const startOffset = centerLabelRadius + 8 // Start just after center label (~56px)
+    const endOffset = wheelRadius - edgePadding // End before edge (~245px)
+    const availableWidth = endOffset - startOffset // ~189px available for text
+
+    // Find longest track name
+    let longestName = ""
+    for (const track of wheelTracks) {
+      if (track.songName.length > longestName.length) {
+        longestName = track.songName
+      }
+    }
+
+    if (longestName.length === 0) {
+      return { fontSize: 14, startOffset, availableWidth }
+    }
+
+    // Calculate font size so longest name fits in available width
+    // Average character width is ~0.6 of font size for this font
+    const charWidthRatio = 0.6
+    const calculatedFontSize = availableWidth / (longestName.length * charWidthRatio)
+
+    // Clamp between reasonable bounds (10px min, 18px max)
+    const fontSize = Math.max(10, Math.min(18, calculatedFontSize))
+
+    return { fontSize, startOffset, availableWidth }
+  }, [wheelTracks])
 
   return (
     <div className="min-h-screen">
@@ -355,17 +399,17 @@ export default function UnboxPage() {
                             <div
                               className="absolute text-white font-semibold whitespace-nowrap"
                               style={{
-                                fontSize: "11px",
+                                fontSize: `${wheelTextConfig.fontSize}px`,
                                 left: "50%",
                                 top: "50%",
-                                width: "180px",
-                                marginLeft: "50px",
-                                transform: "translateY(-50%)",
+                                // Position text centered within the available radial space
+                                marginLeft: `${wheelTextConfig.startOffset + wheelTextConfig.availableWidth / 2}px`,
+                                transform: "translate(-50%, -50%)",
                                 textShadow: "0 2px 8px rgba(0, 0, 0, 0.9)",
                                 color: selectedTrackIndex === index && step === "stopped" ? "#00ff9d" : "#ffffff",
                               }}
                             >
-                              {truncateSongName(track.songName)}
+                              {track.songName}
                             </div>
                           </div>
                         </div>

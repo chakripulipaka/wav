@@ -78,10 +78,14 @@ export function Navigation() {
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <button
-              className="flex h-10 w-10 items-center justify-center rounded-full bg-primary text-primary-foreground font-bold text-sm hover:opacity-80 transition-opacity flex-shrink-0"
+              className="flex h-10 w-10 items-center justify-center rounded-full bg-primary text-primary-foreground font-bold text-sm hover:opacity-80 transition-opacity flex-shrink-0 overflow-hidden"
               title={username}
             >
-              {firstLetter}
+              {user?.avatar_url ? (
+                <img src={user.avatar_url} alt={username} className="h-full w-full object-cover" />
+              ) : (
+                firstLetter
+              )}
             </button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-48">
@@ -95,11 +99,6 @@ export function Navigation() {
             <DropdownMenuItem asChild>
               <Link href="/profile" className="cursor-pointer">
                 Profile Settings
-              </Link>
-            </DropdownMenuItem>
-            <DropdownMenuItem asChild>
-              <Link href="/deck" className="cursor-pointer">
-                My Deck
               </Link>
             </DropdownMenuItem>
             <DropdownMenuSeparator />

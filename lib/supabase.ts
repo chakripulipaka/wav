@@ -390,3 +390,81 @@ export async function getDailyStats(
 
   return (data || []) as UserDailyStats[];
 }
+
+// ============================================
+// Avatar Storage Functions
+// ============================================
+
+// Upload avatar to Supabase Storage and return the public URL
+export async function uploadAvatar(
+  userId: string,
+  fileBuffer: Buffer,
+  fileName: string,
+  contentType: string
+): Promise<string | null> {
+  const supabase = getSupabaseAdminClient();
+
+  // Generate unique filename: userId/avatar-timestamp.ext
+  const ext = fileName.split('.').pop() || 'jpg';
+  const storagePath = `${userId}/avatar-${Date.now()}.${ext}`;
+
+  // Upload to storage
+  const { error: uploadError } = await supabase.storage
+    .from('avatars')
+    .upload(storagePath, fileBuffer, {
+      contentType,
+      upsert: true,
+    });
+
+  if (uploadError) {
+    console.error('Error uploading avatar:', uploadError);
+    return null;
+  }
+
+  // Get public URL
+  const { data: urlData } = supabase.storage
+    .from('avatars')
+    .getPublicUrl(storagePath);
+
+  return urlData.publicUrl;
+}
+
+// Delete old avatar from storage
+export async function deleteAvatar(avatarUrl: string): Promise<void> {
+  if (!avatarUrl || !avatarUrl.includes('/avatars/')) return;
+
+  const supabase = getSupabaseAdminClient();
+
+  // Extract path from URL: .../avatars/userId/avatar-timestamp.ext
+  const urlParts = avatarUrl.split('/avatars/');
+  if (urlParts.length < 2) return;
+
+  const storagePath = urlParts[1];
+
+  const { error } = await supabase.storage
+    .from('avatars')
+    .remove([storagePath]);
+
+  if (error) {
+    console.error('Error deleting old avatar:', error);
+  }
+}
+
+// Update user's avatar URL in database
+export async function updateUserAvatar(userId: string, avatarUrl: string): Promise<Profile | null> {
+  const supabase = getSupabaseAdminClient();
+
+  const { data, error } = await supabase
+    .from('profiles')
+    .update({ avatar_url: avatarUrl })
+    .eq('id', userId)
+    .select()
+    .single();
+
+  if (error) {
+    console.error('Error updating user avatar:', error);
+    return null;
+  }
+
+  return data;
+}

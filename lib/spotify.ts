@@ -176,6 +176,42 @@ export async function getAudioFeatures(trackId: string): Promise<SpotifyAudioFea
   return response.json();
 }
 
+// Batch fetch audio features for multiple tracks in ONE API call
+export async function getBatchAudioFeatures(
+  trackIds: string // comma-separated IDs
+): Promise<Map<string, SpotifyAudioFeatures>> {
+  if (!trackIds) {
+    return new Map();
+  }
+
+  const token = await getSpotifyToken();
+
+  const response = await fetch(
+    `https://api.spotify.com/v1/audio-features?ids=${trackIds}`,
+    {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    }
+  );
+
+  if (!response.ok) {
+    console.error('Batch audio features failed:', response.status);
+    return new Map();
+  }
+
+  const data = await response.json();
+  const map = new Map<string, SpotifyAudioFeatures>();
+
+  for (const features of data.audio_features || []) {
+    if (features) {
+      map.set(features.id, features);
+    }
+  }
+
+  return map;
+}
+
 export async function getRandomTrackForGenre(genre: string): Promise<{
   track: SpotifyTrack;
   audioFeatures: SpotifyAudioFeatures | null;
@@ -276,47 +312,61 @@ export function getBestAlbumArt(track: SpotifyTrack): string {
 }
 
 // Get multiple random tracks for the wheel (10 unique tracks from mixed genres)
+// Optimized: Fetches all searches in PARALLEL, then batch fetches audio features
 export async function getRandomTracksForWheel(count: number = 10): Promise<Array<{
   track: SpotifyTrack;
   audioFeatures: SpotifyAudioFeatures | null;
 }>> {
-  const results: Array<{
-    track: SpotifyTrack;
-    audioFeatures: SpotifyAudioFeatures | null;
-  }> = [];
-
-  const usedTrackIds = new Set<string>();
   const allGenres = Object.keys(GENRE_QUERIES);
 
-  // Try to get unique tracks from different genres
-  let attempts = 0;
-  const maxAttempts = count * 3; // Allow some retries for uniqueness
+  // 1. Pick random genres (extra for fallback in case some searches fail)
+  const selectedGenres = Array.from({ length: count + 5 }, () =>
+    allGenres[Math.floor(Math.random() * allGenres.length)]
+  );
 
-  while (results.length < count && attempts < maxAttempts) {
-    attempts++;
+  // 2. Fetch all searches IN PARALLEL (major performance improvement)
+  const searchPromises = selectedGenres.map(genre =>
+    searchTracksByGenre(genre, 50).catch(() => [] as SpotifyTrack[])
+  );
+  const searchResults = await Promise.all(searchPromises);
 
-    // Pick a random genre
-    const randomGenre = allGenres[Math.floor(Math.random() * allGenres.length)];
+  // 3. Pick unique random tracks from results
+  const usedIds = new Set<string>();
+  const selectedTracks: SpotifyTrack[] = [];
 
-    try {
-      const trackResult = await getRandomTrackForGenre(randomGenre);
+  for (const tracks of searchResults) {
+    if (selectedTracks.length >= count) break;
 
-      if (trackResult && !usedTrackIds.has(trackResult.track.id)) {
-        usedTrackIds.add(trackResult.track.id);
-        results.push(trackResult);
-      }
-    } catch (error) {
-      console.error(`Error fetching track for wheel (genre: ${randomGenre}):`, error);
-      // Continue trying other genres
+    // Filter to valid tracks we haven't used yet
+    const validTracks = tracks.filter(
+      t => t.album.images.length > 0 && t.artists.length > 0 && !usedIds.has(t.id)
+    );
+
+    if (validTracks.length > 0) {
+      // Pick a random track from this genre's results
+      const track = validTracks[Math.floor(Math.random() * validTracks.length)];
+      usedIds.add(track.id);
+      selectedTracks.push(track);
     }
   }
 
-  // If we still don't have enough tracks, fill with whatever we can get
-  if (results.length < count) {
-    console.warn(`Only got ${results.length}/${count} tracks for wheel`);
+  if (selectedTracks.length < count) {
+    console.warn(`Only got ${selectedTracks.length}/${count} tracks for wheel`);
   }
 
-  return results;
+  if (selectedTracks.length === 0) {
+    return [];
+  }
+
+  // 4. Batch fetch audio features (ONE API call for all tracks instead of 10)
+  const trackIds = selectedTracks.map(t => t.id).join(',');
+  const audioFeaturesMap = await getBatchAudioFeatures(trackIds);
+
+  // 5. Combine tracks with their audio features
+  return selectedTracks.map(track => ({
+    track,
+    audioFeatures: audioFeaturesMap.get(track.id) || null
+  }));
 }
 
 // Export available genres

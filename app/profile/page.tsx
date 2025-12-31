@@ -1,33 +1,28 @@
 "use client"
 
 import type React from "react"
-
-import { useState } from "react"
-import { useRouter } from "next/navigation"
+import { useState, useRef } from "react"
 import { Navigation } from "@/components/navigation"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
-import { ArrowLeft, Upload, LogOut } from "lucide-react"
+import { ArrowLeft, Upload, LogOut, Loader2 } from "lucide-react"
 import Link from "next/link"
-
-// Mock user data - in production this would come from the database/session
-const mockUser = {
-  username: "MusicLover123",
-  email: "user@example.com",
-  profileImage: null,
-  deckPrivacy: "public",
-  tradePrivacy: "public",
-}
+import { useAuth, useRequireAuth } from "@/contexts/AuthContext"
+import { usersApi } from "@/lib/api"
 
 export default function ProfilePage() {
-  const router = useRouter()
-  const [user, setUser] = useState(mockUser)
+  const { user } = useRequireAuth()
+  const { logout, refreshUser } = useAuth()
   const [isEditing, setIsEditing] = useState(false)
+  const [isUploading, setIsUploading] = useState(false)
+  const [uploadError, setUploadError] = useState<string | null>(null)
+  const fileInputRef = useRef<HTMLInputElement>(null)
+
   const [formData, setFormData] = useState({
-    username: user.username,
-    email: user.email,
-    deckPrivacy: user.deckPrivacy,
-    tradePrivacy: user.tradePrivacy,
+    username: user?.username || "",
+    email: user?.email || "",
+    deckPrivacy: user?.deck_privacy || "public",
+    tradePrivacy: user?.trade_privacy || "public",
   })
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
@@ -39,33 +34,80 @@ export default function ProfilePage() {
   }
 
   const handleSave = () => {
-    setUser({
-      ...user,
-      username: formData.username,
-      email: formData.email,
-      deckPrivacy: formData.deckPrivacy,
-      tradePrivacy: formData.tradePrivacy,
-    })
+    // TODO: Implement profile update API
     setIsEditing(false)
   }
 
   const handleCancel = () => {
     setFormData({
-      username: user.username,
-      email: user.email,
-      deckPrivacy: user.deckPrivacy,
-      tradePrivacy: user.tradePrivacy,
+      username: user?.username || "",
+      email: user?.email || "",
+      deckPrivacy: user?.deck_privacy || "public",
+      tradePrivacy: user?.trade_privacy || "public",
     })
     setIsEditing(false)
   }
 
   const handleLogout = () => {
-    router.push("/")
+    logout()
+    window.location.href = "/"
+  }
+
+  const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file || !user) return
+
+    // Validate file type
+    const validTypes = ['image/jpeg', 'image/png', 'image/webp']
+    if (!validTypes.includes(file.type)) {
+      setUploadError('Please select a JPEG, PNG, or WebP image')
+      return
+    }
+
+    // Validate file size (5MB max)
+    if (file.size > 5 * 1024 * 1024) {
+      setUploadError('Image must be less than 5MB')
+      return
+    }
+
+    setIsUploading(true)
+    setUploadError(null)
+
+    const result = await usersApi.uploadAvatar(user.id, file)
+
+    if (result.error) {
+      setUploadError(result.error)
+    } else {
+      // Refresh user data to get new avatar
+      await refreshUser()
+    }
+
+    setIsUploading(false)
+
+    // Clear the file input
+    if (fileInputRef.current) {
+      fileInputRef.current.value = ''
+    }
+  }
+
+  const triggerFileInput = () => {
+    fileInputRef.current?.click()
+  }
+
+  if (!user) {
+    return (
+      <div className="min-h-screen">
+        <Navigation />
+        <div className="flex items-center justify-center py-20">
+          <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        </div>
+      </div>
+    )
   }
 
   return (
     <div className="min-h-screen">
-      <Navigation username={user.username} />
+      <Navigation />
 
       <div className="mx-auto max-w-2xl px-6 py-8">
         {/* Back Button */}
@@ -86,14 +128,49 @@ export default function ProfilePage() {
           <div>
             <h2 className="text-xl font-semibold mb-4">Profile Picture</h2>
             <div className="flex items-center gap-4">
-              <div className="h-20 w-20 rounded-full bg-primary text-primary-foreground flex items-center justify-center text-2xl font-bold">
-                {user.username.charAt(0).toUpperCase()}
+              {/* Avatar Circle */}
+              <div className="h-20 w-20 rounded-full bg-primary text-primary-foreground flex items-center justify-center text-2xl font-bold overflow-hidden flex-shrink-0">
+                {user.avatar_url ? (
+                  <img
+                    src={user.avatar_url}
+                    alt={user.username}
+                    className="h-full w-full object-cover"
+                  />
+                ) : (
+                  user.username.charAt(0).toUpperCase()
+                )}
               </div>
+
+              {/* Upload Button - only visible in edit mode */}
               {isEditing && (
-                <button className="flex items-center gap-2 px-4 py-2 rounded-lg bg-muted hover:bg-muted/80 transition-colors">
-                  <Upload className="h-4 w-4" />
-                  Change Picture
-                </button>
+                <div className="flex flex-col gap-2">
+                  <button
+                    onClick={triggerFileInput}
+                    disabled={isUploading}
+                    className="flex items-center gap-2 px-4 py-2 rounded-lg text-primary font-medium transition-all hover:shadow-[0_0_20px_rgba(255,92,147,0.3)] disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {isUploading ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <Upload className="h-4 w-4" />
+                    )}
+                    {isUploading ? 'Uploading...' : 'Change Photo'}
+                  </button>
+                  {uploadError && (
+                    <p className="text-sm text-destructive">{uploadError}</p>
+                  )}
+                </div>
+              )}
+
+              {/* Hidden file input - only rendered in edit mode */}
+              {isEditing && (
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp"
+                  onChange={handleFileSelect}
+                  className="hidden"
+                />
               )}
             </div>
           </div>
@@ -155,7 +232,7 @@ export default function ProfilePage() {
                 </select>
               ) : (
                 <p className="px-4 py-2 rounded-lg bg-muted text-foreground capitalize">
-                  {user.deckPrivacy === "public" ? "Public - Everyone can view" : "Private - Only you can view"}
+                  {user.deck_privacy === "public" ? "Public - Everyone can view" : "Private - Only you can view"}
                 </p>
               )}
             </div>
@@ -175,7 +252,7 @@ export default function ProfilePage() {
                 </select>
               ) : (
                 <p className="px-4 py-2 rounded-lg bg-muted text-foreground capitalize">
-                  {user.tradePrivacy === "public" ? "Public - Everyone can view" : "Private - Only you can view"}
+                  {user.trade_privacy === "public" ? "Public - Everyone can view" : "Private - Only you can view"}
                 </p>
               )}
             </div>

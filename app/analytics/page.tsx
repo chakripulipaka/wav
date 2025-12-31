@@ -36,6 +36,26 @@ interface SelectedCard {
   genre?: string
 }
 
+// Get text color for rank number
+const getRankColor = (index: number): string => {
+  switch (index) {
+    case 0: return 'text-yellow-400'   // Gold #1
+    case 1: return 'text-gray-300'     // Silver #2
+    case 2: return 'text-amber-600'    // Bronze #3
+    default: return 'text-white'       // White #4+
+  }
+}
+
+// Get border color for avatar/album
+const getRankBorder = (index: number): string => {
+  switch (index) {
+    case 0: return 'border-yellow-400'  // Gold
+    case 1: return 'border-gray-300'    // Silver
+    case 2: return 'border-amber-600'   // Bronze
+    default: return 'border-border'     // Default
+  }
+}
+
 export default function AnalyticsPage() {
   // Separate search state for users and cards
   const [userSearchQuery, setUserSearchQuery] = useState("")
@@ -550,8 +570,19 @@ export default function AnalyticsPage() {
                     >
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-3">
-                          <div className="flex h-10 w-10 items-center justify-center rounded-full bg-gradient-to-br from-primary to-secondary font-bold text-black text-sm">
+                          {/* Rank Number */}
+                          <span className={`text-sm font-bold w-6 ${getRankColor(index)}`}>
                             #{index + 1}
+                          </span>
+                          {/* User Avatar */}
+                          <div className={`h-10 w-10 rounded-full overflow-hidden flex-shrink-0 border-2 ${getRankBorder(index)}`}>
+                            {user.avatar_url ? (
+                              <img src={user.avatar_url} alt={user.username} className="h-full w-full object-cover" />
+                            ) : (
+                              <div className="h-full w-full bg-primary flex items-center justify-center text-primary-foreground font-bold">
+                                {user.username.charAt(0).toUpperCase()}
+                              </div>
+                            )}
                           </div>
                           <div>
                             <h3 className="font-bold">{user.username}</h3>
@@ -628,8 +659,13 @@ export default function AnalyticsPage() {
                     >
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-3">
-                          <div className="flex h-10 w-10 items-center justify-center rounded-full bg-gradient-to-br from-primary to-secondary font-bold text-black text-sm">
+                          {/* Rank Number */}
+                          <span className={`text-sm font-bold w-6 ${getRankColor(index)}`}>
                             #{index + 1}
+                          </span>
+                          {/* Album Cover */}
+                          <div className={`h-10 w-10 rounded-full overflow-hidden flex-shrink-0 border-2 ${getRankBorder(index)}`}>
+                            <img src={card.album_art_url} alt={card.song_name} className="h-full w-full object-cover" />
                           </div>
                           <div>
                             <h3 className="font-bold">{card.song_name}</h3>

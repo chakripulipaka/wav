@@ -82,6 +82,30 @@ export const usersApi = {
   async searchUsers(query: string): Promise<ApiResponse<{ id: string; username: string; avatar_url?: string }[]>> {
     return apiFetch(`/api/users/search?q=${encodeURIComponent(query)}`);
   },
+
+  async uploadAvatar(userId: string, file: File): Promise<ApiResponse<{ user: Omit<Profile, 'password_hash'>; message: string }>> {
+    const formData = new FormData();
+    formData.append('avatar', file);
+
+    try {
+      const response = await fetch(`/api/users/${userId}/avatar`, {
+        method: 'POST',
+        body: formData,
+        credentials: 'include',
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        return { error: data.error || 'Upload failed' };
+      }
+
+      return { data };
+    } catch (error) {
+      console.error('Avatar upload failed:', error);
+      return { error: 'Network error. Please try again.' };
+    }
+  },
 };
 
 // Cards API
