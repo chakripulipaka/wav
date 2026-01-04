@@ -2,10 +2,11 @@
 
 import type React from "react"
 import { useState, useEffect } from "react"
+import Link from "next/link"
 import { Navigation } from "@/components/navigation"
 import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { ArrowLeftRight, Clock, Check, XCircle, Loader2, AlertCircle } from "lucide-react"
+import { ArrowLeftRight, Clock, Check, XCircle, Loader2, AlertCircle, Lock } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { TradeDetailModal } from "@/components/trade-detail-modal"
 import { TradeCountdown } from "@/components/trade-countdown"
@@ -74,6 +75,31 @@ export default function AllTradeOffersPage() {
       }
       setSelectedTradeDetail(null)
     }
+  }
+
+  // Guest restriction check
+  if (user?.is_guest) {
+    return (
+      <div className="min-h-screen">
+        <Navigation />
+        <div className="mx-auto max-w-2xl px-6 py-20 text-center">
+          <div className="mb-6">
+            <div className="mx-auto w-20 h-20 rounded-full bg-secondary/10 flex items-center justify-center mb-4">
+              <Lock className="h-10 w-10 text-secondary" />
+            </div>
+            <h1 className="text-3xl font-bold mb-2">Trading Unavailable</h1>
+            <p className="text-muted-foreground">
+              Guest accounts cannot trade cards. Create a full account to unlock trading!
+            </p>
+          </div>
+          <Link href="/login?mode=signup">
+            <Button className="bg-primary hover:bg-primary/90">
+              Create Account
+            </Button>
+          </Link>
+        </div>
+      </div>
+    );
   }
 
   return (

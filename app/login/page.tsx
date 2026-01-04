@@ -4,12 +4,13 @@ import type React from "react"
 import { useState, useEffect } from "react"
 import Link from "next/link"
 import { useRouter, useSearchParams } from "next/navigation"
-import { Mail, Lock, User, Eye, EyeOff, Loader2 } from "lucide-react"
+import { Mail, Lock, User, Eye, EyeOff, Loader2, UserCircle } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Card } from "@/components/ui/card"
 import { useAuth } from "@/contexts/AuthContext"
+import { authApi } from "@/lib/api"
 
 export default function LoginPage() {
   const router = useRouter()
@@ -65,6 +66,27 @@ export default function LoginPage() {
   const handleInputChange = (field: string, value: string) => {
     setFormData((prev) => ({ ...prev, [field]: value }))
     setError(null) // Clear error when user types
+  }
+
+  const handleGuestSignup = async () => {
+    setError(null)
+    setIsSubmitting(true)
+
+    try {
+      const result = await authApi.registerAsGuest()
+
+      if (result.error) {
+        setError(result.error)
+        return
+      }
+
+      // Auto-login handled by API, redirect to games page
+      router.push('/games')
+    } catch (err) {
+      setError("Failed to create guest account")
+    } finally {
+      setIsSubmitting(false)
+    }
   }
 
   // Show loading state while checking auth
@@ -183,6 +205,40 @@ export default function LoginPage() {
               isSignUp ? "Create Account" : "Sign In"
             )}
           </Button>
+
+          {/* Guest signup option (only in signup mode) */}
+          {isSignUp && (
+            <>
+              <div className="relative my-6">
+                <div className="absolute inset-0 flex items-center">
+                  <div className="w-full border-t border-border" />
+                </div>
+                <div className="relative flex justify-center text-sm">
+                  <span className="bg-card px-4 text-muted-foreground">or</span>
+                </div>
+              </div>
+
+              <Button
+                type="button"
+                onClick={handleGuestSignup}
+                variant="outline"
+                className="w-full border-primary/30 text-primary hover:bg-primary/10"
+                size="lg"
+                disabled={isSubmitting}
+              >
+                {isSubmitting ? (
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                ) : (
+                  <UserCircle className="h-4 w-4 mr-2" />
+                )}
+                Collect as a Guest
+              </Button>
+
+              <p className="mt-2 text-xs text-center text-muted-foreground">
+                No email required • Full game access • Progress lost on logout
+              </p>
+            </>
+          )}
 
           <div className="text-center text-sm">
             {isSignUp ? (

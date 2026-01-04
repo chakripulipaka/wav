@@ -249,7 +249,7 @@ export async function getRandomTrackForGenre(genre: string): Promise<{
 }
 
 // Calculate card stats from Spotify data
-// Momentum: 1-100, represents hype/popularity, heavily weighted by Spotify popularity
+// Momentum: 1-100, directly from Spotify popularity
 // Energy: Cards start at 0 energy, grows by momentum each hour (max 100,000)
 export function calculateCardStats(
   track: SpotifyTrack,
@@ -259,33 +259,11 @@ export function calculateCardStats(
   momentum: number;
   bpm: number;
 } {
-  // Momentum calculation (1-100):
-  // Weighted formula: 50% popularity + 20% energy + 15% danceability + 15% tempo_normalized
-  // With some randomness (±8) but not extreme variance
-
-  const popularity = track.popularity; // 0-100 from Spotify
-
-  // Get audio feature values, or use reasonable defaults
-  const spotifyEnergy = audioFeatures ? audioFeatures.energy * 100 : 50;
-  const danceability = audioFeatures ? audioFeatures.danceability * 100 : 50;
-  const tempo = audioFeatures ? audioFeatures.tempo : 120;
-
-  // Normalize tempo to 0-100 scale (60 BPM = 0, 180 BPM = 100)
-  const tempoNormalized = Math.max(0, Math.min(100, ((tempo - 60) / 120) * 100));
-
-  // Weighted momentum calculation
-  const baseMomentum =
-    (popularity * 0.50) +          // 50% weight on popularity (biggest factor)
-    (spotifyEnergy * 0.20) +       // 20% weight on energy
-    (danceability * 0.15) +        // 15% weight on danceability
-    (tempoNormalized * 0.15);      // 15% weight on tempo
-
-  // Add randomness (±8) for variety between cards of similar tracks
-  const momentumVariance = Math.floor(Math.random() * 17) - 8;
-  const momentum = Math.max(1, Math.min(100, Math.round(baseMomentum + momentumVariance)));
+  // Momentum = Spotify popularity × random multiplier (1x to 1.5x), capped at 100
+  const multiplier = 1 + Math.random() * 0.5; // Random value between 1.0 and 1.5
+  const momentum = Math.max(1, Math.min(100, Math.round(track.popularity * multiplier)));
 
   // Energy: Cards start at 0, will grow by momentum each hour
-  // This is the INITIAL energy value
   const energy = 0;
 
   // BPM: From audio features tempo, or estimate
@@ -371,3 +349,257 @@ export async function getRandomTracksForWheel(count: number = 10): Promise<Array
 
 // Export available genres
 export const AVAILABLE_GENRES = Object.keys(GENRE_QUERIES);
+
+// Interface for artist search results
+export interface SpotifyArtist {
+  id: string;
+  name: string;
+  images: { url: string; width: number; height: number }[];
+  popularity: number;
+  genres: string[];
+}
+
+// Search for artists by name
+export async function searchArtists(query: string, limit: number = 10): Promise<SpotifyArtist[]> {
+  if (!query || query.trim().length === 0) {
+    return [];
+  }
+
+  const token = await getSpotifyToken();
+
+  const response = await fetch(
+    `https://api.spotify.com/v1/search?q=${encodeURIComponent(query)}&type=artist&limit=${limit}`,
+    {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    }
+  );
+
+  if (!response.ok) {
+    const error = await response.text();
+    console.error('Artist search failed:', error);
+    return [];
+  }
+
+  const data = await response.json();
+  return data.artists?.items || [];
+}
+
+// Get best artist image URL
+export function getBestArtistImage(artist: SpotifyArtist): string | undefined {
+  const images = artist.images;
+  if (images.length === 0) {
+    return undefined;
+  }
+
+  // Sort by size descending and get medium-sized image
+  const sorted = [...images].sort((a, b) => b.width - a.width);
+  const preferred = sorted.find((img) => img.width >= 160 && img.width <= 320);
+  return preferred?.url || sorted[0].url;
+}
+
+// Get top tracks from a specific artist
+export async function getArtistTopTracks(artistId: string): Promise<SpotifyTrack[]> {
+  const token = await getSpotifyToken();
+
+  const response = await fetch(
+    `https://api.spotify.com/v1/artists/${artistId}/top-tracks?market=US`,
+    {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    }
+  );
+
+  if (!response.ok) {
+    console.error('Failed to get artist top tracks:', response.status);
+    return [];
+  }
+
+  const data = await response.json();
+  return data.tracks || [];
+}
+
+// Search for tracks by a specific artist using search endpoint (gets full catalog including deep cuts)
+export async function searchArtistTracks(
+  artistId: string,
+  artistName: string,
+  limit: number = 50
+): Promise<SpotifyTrack[]> {
+  const token = await getSpotifyToken();
+
+  // Use random offset to get different tracks each time (like genre searches do)
+  const randomOffset = Math.floor(Math.random() * 100);
+
+  // Search for tracks by this artist
+  const response = await fetch(
+    `https://api.spotify.com/v1/search?` +
+      new URLSearchParams({
+        q: `artist:"${artistName}"`,
+        type: 'track',
+        limit: limit.toString(),
+        offset: randomOffset.toString(),
+        market: 'US',
+      }),
+    {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    }
+  );
+
+  if (!response.ok) {
+    console.error('Failed to search artist tracks:', response.status);
+    // Fallback to top tracks if search fails
+    return getArtistTopTracks(artistId);
+  }
+
+  const data = await response.json();
+  const tracks = data.tracks?.items || [];
+
+  // Filter to ensure album art and valid artists
+  return tracks.filter(
+    (t: SpotifyTrack) => t.album?.images?.length > 0 && t.artists?.length > 0
+  );
+}
+
+// Get tracks from multiple preferred artists
+export async function getTracksFromArtists(
+  artists: Array<{ id: string; name: string }>,
+  count: number
+): Promise<SpotifyTrack[]> {
+  if (artists.length === 0) return [];
+
+  // Fetch tracks from each artist using search (gets deep cuts too)
+  const trackPromises = artists.map((artist) =>
+    searchArtistTracks(artist.id, artist.name, 50).catch(() => [] as SpotifyTrack[])
+  );
+  const allArtistTracks = await Promise.all(trackPromises);
+
+  // Collect all valid tracks
+  const allTracks: SpotifyTrack[] = [];
+  for (const tracks of allArtistTracks) {
+    const validTracks = tracks.filter(
+      (t) => t.album.images.length > 0 && t.artists.length > 0
+    );
+    allTracks.push(...validTracks);
+  }
+
+  // Shuffle and return requested count
+  const shuffled = allTracks.sort(() => Math.random() - 0.5);
+  return shuffled.slice(0, count);
+}
+
+// Get tracks with genre bias (biasStrength = 0.75 means 75% from preferred genres)
+export async function getGenreBiasedTracks(
+  preferredGenres: string[],
+  count: number,
+  biasStrength: number = 0.75
+): Promise<SpotifyTrack[]> {
+  const allGenres = Object.keys(GENRE_QUERIES);
+
+  // Calculate how many tracks from preferred vs random genres
+  const preferredCount =
+    preferredGenres.length > 0 ? Math.round(count * biasStrength) : 0;
+  const randomCount = count - preferredCount;
+
+  // Select genres to search
+  const genresToSearch: string[] = [];
+
+  // Add preferred genres
+  for (let i = 0; i < preferredCount; i++) {
+    const genre = preferredGenres[Math.floor(Math.random() * preferredGenres.length)];
+    genresToSearch.push(genre);
+  }
+
+  // Add random genres
+  for (let i = 0; i < randomCount; i++) {
+    const genre = allGenres[Math.floor(Math.random() * allGenres.length)];
+    genresToSearch.push(genre);
+  }
+
+  // Fetch tracks from all genres in parallel
+  const searchPromises = genresToSearch.map((genre) =>
+    searchTracksByGenre(genre, 50).catch(() => [] as SpotifyTrack[])
+  );
+  const searchResults = await Promise.all(searchPromises);
+
+  // Pick unique random tracks from results
+  const usedIds = new Set<string>();
+  const selectedTracks: SpotifyTrack[] = [];
+
+  for (const tracks of searchResults) {
+    if (selectedTracks.length >= count) break;
+
+    const validTracks = tracks.filter(
+      (t) => t.album.images.length > 0 && t.artists.length > 0 && !usedIds.has(t.id)
+    );
+
+    if (validTracks.length > 0) {
+      const track = validTracks[Math.floor(Math.random() * validTracks.length)];
+      usedIds.add(track.id);
+      selectedTracks.push(track);
+    }
+  }
+
+  return selectedTracks;
+}
+
+// Get tracks with user preferences applied (artist bias + genre bias)
+// artistBias: 0.5 = 50% from preferred artists
+// genreBias: 0.75 = 75% of remaining from preferred genres
+export async function getTracksWithPreferences(
+  preferredArtists: Array<{ id: string; name: string }>,
+  preferredGenres: string[],
+  count: number,
+  artistBias: number = 0.5,
+  genreBias: number = 0.75
+): Promise<Array<{ track: SpotifyTrack; audioFeatures: SpotifyAudioFeatures | null }>> {
+  const usedIds = new Set<string>();
+  const selectedTracks: SpotifyTrack[] = [];
+
+  // Calculate artist track count
+  const artistCount =
+    preferredArtists.length > 0 ? Math.round(count * artistBias) : 0;
+  const genreCount = count - artistCount;
+
+  // Get tracks from preferred artists
+  if (artistCount > 0) {
+    const artistTracks = await getTracksFromArtists(preferredArtists, artistCount);
+    for (const track of artistTracks) {
+      if (!usedIds.has(track.id)) {
+        usedIds.add(track.id);
+        selectedTracks.push(track);
+      }
+    }
+  }
+
+  // Fill remaining with genre-biased tracks
+  const remaining = count - selectedTracks.length;
+  if (remaining > 0) {
+    const genreTracks = await getGenreBiasedTracks(preferredGenres, remaining + 5, genreBias);
+    for (const track of genreTracks) {
+      if (selectedTracks.length >= count) break;
+      if (!usedIds.has(track.id)) {
+        usedIds.add(track.id);
+        selectedTracks.push(track);
+      }
+    }
+  }
+
+  if (selectedTracks.length === 0) {
+    return [];
+  }
+
+  // Batch fetch audio features
+  const trackIds = selectedTracks.map((t) => t.id).join(',');
+  const audioFeaturesMap = await getBatchAudioFeatures(trackIds);
+
+  // Shuffle and return with audio features
+  const shuffled = selectedTracks.sort(() => Math.random() - 0.5);
+  return shuffled.map((track) => ({
+    track,
+    audioFeatures: audioFeaturesMap.get(track.id) || null,
+  }));
+}

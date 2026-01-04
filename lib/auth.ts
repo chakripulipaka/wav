@@ -1,6 +1,7 @@
 import { createServerClient } from '@supabase/ssr';
 import { cookies } from 'next/headers';
 import type { Profile } from './types';
+import { getSupabaseAdminClient } from './supabase';
 
 // Validation helpers
 export function validateEmail(email: string): boolean {

@@ -1,14 +1,17 @@
 "use client"
 
 import { useState, useEffect } from "react"
+import Link from "next/link"
 import { Navigation } from "@/components/navigation"
 import { Input } from "@/components/ui/input"
 import { Card } from "@/components/ui/card"
-import { Search, Music2, Zap, TrendingUp, Lock, Loader2, ArrowLeftRight } from "lucide-react"
+import { Button } from "@/components/ui/button"
+import { Search, Music2, Zap, TrendingUp, Lock, Loader2, ArrowLeftRight, Trophy } from "lucide-react"
 import { MusicCard } from "@/components/music-card"
 import { SearchSuggestions } from "@/components/search-suggestions"
 import { AnalyticsChart } from "@/components/analytics-chart"
 import { DeckPreview } from "@/components/deck-preview"
+import { useAuth } from "@/contexts/AuthContext"
 import { usersApi, cardsApi, analyticsApi } from "@/lib/api"
 import type { LeaderboardEntry, Card as CardType, UserAnalytics, HistoricalDataPoint, CardDisplay } from "@/lib/types"
 
@@ -57,6 +60,8 @@ const getRankBorder = (index: number): string => {
 }
 
 export default function AnalyticsPage() {
+  const { user } = useAuth()
+
   // Separate search state for users and cards
   const [userSearchQuery, setUserSearchQuery] = useState("")
   const [showUserSuggestions, setShowUserSuggestions] = useState(false)
@@ -552,7 +557,22 @@ export default function AnalyticsPage() {
               </div>
 
               {/* Top users list */}
-              {topUsers.length > 0 ? (
+              {user?.is_guest ? (
+                <Card className="p-12 text-center border-border bg-card">
+                  <div className="mx-auto w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center mb-4">
+                    <Trophy className="h-8 w-8 text-primary" />
+                  </div>
+                  <h3 className="text-xl font-semibold mb-2">Join the Competition</h3>
+                  <p className="text-muted-foreground mb-4">
+                    Guest accounts don't appear on leaderboards. Sign up to compete!
+                  </p>
+                  <Link href="/login?mode=signup">
+                    <Button className="bg-primary hover:bg-primary/90">
+                      Create Account
+                    </Button>
+                  </Link>
+                </Card>
+              ) : topUsers.length > 0 ? (
                 <div className="grid gap-3">
                   {topUsers.map((user, index) => (
                     <Card

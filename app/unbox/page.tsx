@@ -538,18 +538,14 @@ export default function UnboxPage() {
                 {unboxedCard?.genre && (
                   <p className="text-sm text-primary mt-1 capitalize">{unboxedCard.genre}</p>
                 )}
-                <div className="mt-4 grid grid-cols-2 gap-4">
-                  <div className="rounded-lg bg-card/50 p-3 text-center">
-                    <div className="flex items-center justify-center gap-1 mb-1">
-                      <TrendingUp className="h-4 w-4 text-secondary" />
-                      <p className="text-xs text-muted-foreground">Momentum</p>
+                <div className="mt-4 flex justify-center">
+                  <div className="w-full max-w-md rounded-lg bg-card/50 p-4 text-center">
+                    <div className="flex items-center justify-center gap-1 mb-2">
+                      <TrendingUp className="h-5 w-5 text-secondary" />
+                      <p className="text-sm text-muted-foreground">Momentum</p>
                     </div>
-                    <p className="text-2xl font-bold text-secondary">{unboxedCard?.momentum}</p>
-                    <p className="text-[10px] text-muted-foreground mt-1">+{unboxedCard?.momentum} energy/hour</p>
-                  </div>
-                  <div className="rounded-lg bg-card/50 p-3 text-center">
-                    <p className="text-xs text-muted-foreground mb-1">BPM</p>
-                    <p className="text-2xl font-bold text-white">{unboxedCard?.bpm}</p>
+                    <p className="text-3xl font-bold text-secondary">{unboxedCard?.momentum}</p>
+                    <p className="text-xs text-muted-foreground mt-2">+{unboxedCard?.momentum} energy/hour</p>
                   </div>
                 </div>
                 <p className="text-xs text-muted-foreground mt-3 text-center">

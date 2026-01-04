@@ -1,5 +1,20 @@
 // Database types for WAV music card trading platform
 
+// Artist preference for user's top artists
+export interface ArtistPreference {
+  id: string;           // Spotify artist ID
+  name: string;         // Artist display name
+  image_url?: string;   // Artist image for display
+}
+
+// Available genres for preference selection
+export const AVAILABLE_GENRES = [
+  'rap', 'pop', 'rock', 'electronic', 'rnb',
+  'jazz', 'country', 'latin', 'indie', 'metal'
+] as const;
+
+export type Genre = typeof AVAILABLE_GENRES[number];
+
 export interface Profile {
   id: string;
   username: string;
@@ -12,6 +27,10 @@ export interface Profile {
   trades_completed: number;
   deck_privacy: 'public' | 'private';
   trade_privacy: 'public' | 'private';
+  top_genres: string[];              // User's preferred genres
+  top_artists: ArtistPreference[];   // User's preferred artists
+  is_guest: boolean;                 // Whether this is a guest account
+  guest_number?: number;             // Guest identifier (only for guest accounts)
   last_unbox_time?: string;
   created_at: string;
   updated_at: string;

@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextResponse } from 'next/server';
 import { getAuthenticatedUser } from '@/lib/auth';
 import { getUserPreferences } from '@/lib/supabase';
 import {
@@ -8,21 +8,9 @@ import {
   getBestAlbumArt,
 } from '@/lib/spotify';
 
-// Wheel track response type
-export interface WheelTrack {
-  id: string; // spotify track id
-  songName: string;
-  artistName: string;
-  albumArtUrl: string;
-  momentum: number;
-  energy: number;
-  bpm: number;
-  genre: string;
-}
-
-export async function GET(request: NextRequest) {
+export async function GET() {
   try {
-    // Get authenticated user
+    // Verify authentication
     const authUser = await getAuthenticatedUser();
     if (!authUser) {
       return NextResponse.json(
@@ -37,7 +25,7 @@ export async function GET(request: NextRequest) {
       preferences &&
       (preferences.top_genres.length > 0 || preferences.top_artists.length > 0);
 
-    // Fetch tracks - with preferences if available, otherwise random
+    // Fetch 20 tracks - with preferences if available, otherwise random
     let trackResults;
     if (hasPreferences) {
       const preferredArtists = preferences.top_artists.map((a) => ({
@@ -47,46 +35,36 @@ export async function GET(request: NextRequest) {
       trackResults = await getTracksWithPreferences(
         preferredArtists,
         preferences.top_genres,
-        10, // count
+        20, // count
         0.8, // 80% from preferred artists
         0.5 // 50% of remaining 20% from preferred genres (10% genre, 10% random)
       );
     } else {
-      trackResults = await getRandomTracksForWheel(10);
+      trackResults = await getRandomTracksForWheel(20);
     }
 
     if (trackResults.length === 0) {
       return NextResponse.json(
-        { error: 'Failed to fetch tracks. Please try again.' },
+        { error: 'Failed to fetch random tracks' },
         { status: 500 }
       );
     }
 
-    // Transform to wheel track format
-    const wheelTracks: WheelTrack[] = trackResults.map(({ track, audioFeatures }) => {
+    // Transform to BlackjackGameCard format
+    const deck = trackResults.map(({ track, audioFeatures }) => {
       const stats = calculateCardStats(track, audioFeatures);
-
-      // Determine genre from the search (we don't have it directly, so use a general label)
-      const genre = 'mixed';
-
       return {
-        id: track.id,
-        songName: track.name,
-        artistName: track.artists.map(a => a.name).join(', '),
-        albumArtUrl: getBestAlbumArt(track),
+        id: track.id, // spotify track id
+        song_name: track.name,
+        artist_name: track.artists.map((a) => a.name).join(', '),
+        album_art_url: getBestAlbumArt(track),
         momentum: stats.momentum,
-        energy: stats.energy,
-        bpm: stats.bpm,
-        genre,
       };
     });
 
-    return NextResponse.json({
-      tracks: wheelTracks,
-      count: wheelTracks.length,
-    });
+    return NextResponse.json({ deck });
   } catch (error) {
-    console.error('Wheel tracks error:', error);
+    console.error('Blackjack deck error:', error);
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }

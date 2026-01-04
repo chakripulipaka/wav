@@ -1,7 +1,7 @@
 "use client"
 
 import type React from "react"
-import { useState, useRef } from "react"
+import { useState, useRef, useEffect } from "react"
 import { Navigation } from "@/components/navigation"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
@@ -9,6 +9,9 @@ import { ArrowLeft, Upload, LogOut, Loader2 } from "lucide-react"
 import Link from "next/link"
 import { useAuth, useRequireAuth } from "@/contexts/AuthContext"
 import { usersApi } from "@/lib/api"
+import { GenreSelector } from "@/components/genre-selector"
+import { ArtistSelector } from "@/components/artist-selector"
+import { ArtistPreference } from "@/lib/types"
 
 export default function ProfilePage() {
   const { user } = useRequireAuth()
@@ -26,6 +29,21 @@ export default function ProfilePage() {
     deckPrivacy: user?.deck_privacy || "public",
     tradePrivacy: user?.trade_privacy || "public",
   })
+
+  // Preference state
+  const [topGenres, setTopGenres] = useState<string[]>(user?.top_genres || [])
+  const [topArtists, setTopArtists] = useState<ArtistPreference[]>(user?.top_artists || [])
+  const [isSavingPreferences, setIsSavingPreferences] = useState(false)
+  const [preferencesError, setPreferencesError] = useState<string | null>(null)
+  const [preferencesSaved, setPreferencesSaved] = useState(false)
+
+  // Update preferences when user changes
+  useEffect(() => {
+    if (user) {
+      setTopGenres(user.top_genres || [])
+      setTopArtists(user.top_artists || [])
+    }
+  }, [user])
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target
@@ -65,6 +83,31 @@ export default function ProfilePage() {
       deckPrivacy: user?.deck_privacy || "public",
       tradePrivacy: user?.trade_privacy || "public",
     })
+    setTopGenres(user?.top_genres || [])
+    setTopArtists(user?.top_artists || [])
+    setIsEditing(false)
+  }
+
+  const handleSavePreferences = async () => {
+    if (!user) return
+
+    setIsSavingPreferences(true)
+    setPreferencesError(null)
+    setPreferencesSaved(false)
+
+    const result = await usersApi.updatePreferences(user.id, {
+      top_genres: topGenres,
+      top_artists: topArtists,
+    })
+
+    if (result.error) {
+      setPreferencesError(result.error)
+      setIsSavingPreferences(false)
+      return
+    }
+
+    await refreshUser()
+    setIsSavingPreferences(false)
     setIsEditing(false)
   }
 
@@ -130,12 +173,6 @@ export default function ProfilePage() {
       <Navigation />
 
       <div className="mx-auto max-w-2xl px-6 py-8">
-        {/* Back Button */}
-        <Link href="/deck" className="inline-flex items-center gap-2 text-primary hover:opacity-80 mb-8">
-          <ArrowLeft className="h-5 w-5" />
-          Back to My WAV
-        </Link>
-
         {/* Profile Header */}
         <div className="mb-8">
           <h1 className="text-4xl font-bold">Profile Settings</h1>
@@ -144,10 +181,11 @@ export default function ProfilePage() {
 
         {/* Profile Card */}
         <div className="rounded-lg border border-border bg-card p-8 space-y-8">
-          {/* Profile Picture Section */}
-          <div>
-            <h2 className="text-xl font-semibold mb-4">Profile Picture</h2>
-            <div className="flex items-center gap-4">
+          {/* Profile Picture Section - Only for non-guests */}
+          {!user.is_guest && (
+            <div>
+              <h2 className="text-xl font-semibold mb-4">Profile Picture</h2>
+              <div className="flex items-center gap-4">
               {/* Avatar Circle */}
               <div className="h-20 w-20 rounded-full bg-primary text-primary-foreground flex items-center justify-center text-2xl font-bold overflow-hidden flex-shrink-0">
                 {user.avatar_url ? (
@@ -194,6 +232,7 @@ export default function ProfilePage() {
               )}
             </div>
           </div>
+          )}
 
           {/* User Information */}
           <div className="space-y-6">
@@ -202,7 +241,11 @@ export default function ProfilePage() {
             {/* Username */}
             <div>
               <label className="block text-sm font-medium mb-2">Username</label>
-              {isEditing ? (
+              {user.is_guest ? (
+                <p className="px-4 py-2 rounded-lg bg-muted text-muted-foreground">
+                  {user.username} (Guest Account - Cannot Edit)
+                </p>
+              ) : isEditing ? (
                 <Input
                   name="username"
                   value={formData.username}
@@ -215,27 +258,83 @@ export default function ProfilePage() {
               )}
             </div>
 
-            {/* Email */}
-            <div>
-              <label className="block text-sm font-medium mb-2">Email Address</label>
-              {isEditing ? (
-                <Input
-                  name="email"
-                  type="email"
-                  value={formData.email}
-                  onChange={handleInputChange}
-                  className="bg-background border-border"
-                  placeholder="Enter email"
-                />
-              ) : (
-                <p className="px-4 py-2 rounded-lg bg-muted text-foreground">{user.email}</p>
-              )}
-            </div>
+            {/* Email - Hide for guests */}
+            {!user.is_guest && (
+              <div>
+                <label className="block text-sm font-medium mb-2">Email Address</label>
+                {isEditing ? (
+                  <Input
+                    name="email"
+                    type="email"
+                    value={formData.email}
+                    onChange={handleInputChange}
+                    className="bg-background border-border"
+                    placeholder="Enter email"
+                  />
+                ) : (
+                  <p className="px-4 py-2 rounded-lg bg-muted text-foreground">{user.email}</p>
+                )}
+              </div>
+            )}
           </div>
 
-          {/* Privacy Settings */}
+          {/* Preferences Section */}
           <div className="space-y-6 border-t border-border pt-8">
-            <h2 className="text-xl font-semibold">Privacy Settings</h2>
+            <div>
+              <h2 className="text-xl font-semibold">Preferences</h2>
+              <p className="text-sm text-muted-foreground mt-1">
+                Customize your experience by selecting your favorite genres and artists. Cards you receive will be influenced by these choices.
+              </p>
+            </div>
+
+            {/* Top Genres */}
+            <div>
+              <label className="block text-sm font-medium mb-3">Top Genres</label>
+              <GenreSelector
+                selected={topGenres}
+                onChange={setTopGenres}
+                disabled={!isEditing}
+              />
+            </div>
+
+            {/* Top Artists */}
+            <div>
+              <label className="block text-sm font-medium mb-3">Top Artists</label>
+              <ArtistSelector
+                selected={topArtists}
+                onChange={setTopArtists}
+                disabled={!isEditing}
+              />
+            </div>
+
+            {/* Save Preferences Button (only in edit mode for non-guests) */}
+            {isEditing && !user.is_guest && (
+              <div className="flex items-center gap-4">
+                <Button
+                  onClick={handleSavePreferences}
+                  disabled={isSavingPreferences}
+                  className="bg-primary hover:bg-primary/90"
+                >
+                  {isSavingPreferences ? (
+                    <>
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      Saving Preferences...
+                    </>
+                  ) : (
+                    'Save Preferences'
+                  )}
+                </Button>
+                {preferencesError && (
+                  <p className="text-sm text-destructive">{preferencesError}</p>
+                )}
+              </div>
+            )}
+          </div>
+
+          {/* Privacy Settings - Only for non-guests */}
+          {!user.is_guest && (
+            <div className="space-y-6 border-t border-border pt-8">
+              <h2 className="text-xl font-semibold">Privacy Settings</h2>
 
             {/* WAV Deck Privacy */}
             <div>
@@ -276,15 +375,84 @@ export default function ProfilePage() {
                 </p>
               )}
             </div>
-          </div>
+            </div>
+          )}
 
           {/* Action Buttons */}
           <div className="flex flex-col gap-4 pt-4">
             {saveError && (
               <p className="text-sm text-destructive text-center">{saveError}</p>
             )}
-            <div className="flex gap-4">
-            {isEditing ? (
+            {/* For guests, show preferences error */}
+            {user.is_guest && preferencesError && (
+              <p className="text-sm text-destructive text-center">{preferencesError}</p>
+            )}
+            <div className="flex flex-col gap-4">
+            {user.is_guest ? (
+              // Guest buttons - Edit Profile, Logout, and Create Account
+              <>
+                {/* Top row: Edit Profile + Logout */}
+                <div className="flex gap-4 w-full">
+                  {isEditing ? (
+                    <>
+                      <Button
+                        onClick={handleSavePreferences}
+                        disabled={isSavingPreferences}
+                        className="flex-1 bg-primary hover:bg-primary/90 hover:shadow-[0_0_20px_rgba(0,255,157,0.4)] transition-all"
+                      >
+                        {isSavingPreferences ? (
+                          <>
+                            <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                            Saving...
+                          </>
+                        ) : (
+                          'Save Preferences'
+                        )}
+                      </Button>
+                      <Button
+                        onClick={() => {
+                          setIsEditing(false);
+                          // Reset preferences to original values
+                          setTopGenres(user.top_genres || []);
+                          setTopArtists(user.top_artists || []);
+                        }}
+                        disabled={isSavingPreferences}
+                        variant="outline"
+                        className="flex-1 bg-transparent hover:shadow-[0_0_20px_rgba(255,92,147,0.25)] transition-all"
+                      >
+                        Cancel
+                      </Button>
+                    </>
+                  ) : (
+                    <>
+                      <Button
+                        onClick={() => setIsEditing(true)}
+                        className="flex-1 bg-primary hover:bg-primary/90 hover:shadow-[0_0_20px_rgba(0,255,157,0.4)] transition-all"
+                      >
+                        Edit Profile
+                      </Button>
+                      <Button
+                        onClick={handleLogout}
+                        variant="outline"
+                        className="flex-1 bg-transparent hover:shadow-[0_0_20px_rgba(255,92,147,0.25)] transition-all"
+                      >
+                        <LogOut className="h-4 w-4 mr-2" />
+                        Logout
+                      </Button>
+                    </>
+                  )}
+                </div>
+
+                {/* Bottom row: Create Account (full width) */}
+                {!isEditing && (
+                  <Link href="/login?mode=signup" className="w-full">
+                    <Button className="w-full bg-secondary hover:bg-secondary/90 hover:shadow-[0_0_20px_rgba(255,92,147,0.4)] transition-all">
+                      Create Account
+                    </Button>
+                  </Link>
+                )}
+              </>
+            ) : isEditing ? (
               <>
                 <Button
                   onClick={handleSave}

@@ -16,6 +16,7 @@ export async function GET(request: NextRequest) {
       .from('profiles')
       .select('id, username, avatar_url')
       .ilike('username', `%${query}%`)
+      .eq('is_guest', false)
       .limit(10);
 
     if (error) {

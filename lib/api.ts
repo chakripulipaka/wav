@@ -10,7 +10,8 @@ import type {
   CardDisplay,
   UserCard,
   HistoricalDataPoint,
-  AnalyticsHistoryResponse
+  AnalyticsHistoryResponse,
+  ArtistPreference
 } from './types';
 import { cardToDisplay } from './types';
 
@@ -50,6 +51,12 @@ export const authApi = {
     return apiFetch('/api/auth/register', {
       method: 'POST',
       body: JSON.stringify({ username, email, password }),
+    });
+  },
+
+  async registerAsGuest(): Promise<ApiResponse<{ user: Omit<Profile, 'password_hash'>; message: string }>> {
+    return apiFetch('/api/auth/register-guest', {
+      method: 'POST',
     });
   },
 
@@ -114,6 +121,19 @@ export const usersApi = {
     return apiFetch(`/api/users/${userId}`, {
       method: 'PUT',
       body: JSON.stringify(updates),
+    });
+  },
+
+  async updatePreferences(
+    userId: string,
+    preferences: {
+      top_genres?: string[];
+      top_artists?: ArtistPreference[];
+    }
+  ): Promise<ApiResponse<{ user: Omit<Profile, 'password_hash'> }>> {
+    return apiFetch(`/api/users/${userId}`, {
+      method: 'PUT',
+      body: JSON.stringify(preferences),
     });
   },
 };
@@ -279,6 +299,56 @@ export const analyticsApi = {
   },
 };
 
+// Energy API (for games like blackjack)
+export const energyApi = {
+  async getEnergy(userId: string): Promise<ApiResponse<{ energy: number }>> {
+    return apiFetch(`/api/users/${userId}/energy`);
+  },
+
+  async updateEnergy(
+    userId: string,
+    amount: number,
+    reason?: string
+  ): Promise<ApiResponse<{ success: boolean; previousEnergy: number; newEnergy: number; change: number }>> {
+    return apiFetch(`/api/users/${userId}/energy`, {
+      method: 'POST',
+      body: JSON.stringify({ amount, reason }),
+    });
+  },
+};
+
+// Blackjack API (for card win/lose mechanics)
+export const blackjackApi = {
+  async getDeck(): Promise<ApiResponse<{ deck: { id: string; song_name: string; artist_name: string; album_art_url: string; momentum: number }[] }>> {
+    return apiFetch('/api/blackjack/deck');
+  },
+
+  async removeCard(
+    userId: string,
+    cardId: string
+  ): Promise<ApiResponse<{ success: boolean; message: string; cardId: string }>> {
+    return apiFetch(`/api/cards/user/${userId}/${cardId}`, {
+      method: 'DELETE',
+    });
+  },
+
+  async claimCards(
+    cards: { id: string; song_name: string; artist_name: string; album_art_url: string; momentum: number }[]
+  ): Promise<ApiResponse<{ success: boolean; message: string; addedCards: string[]; skipped: number }>> {
+    return apiFetch('/api/blackjack/claim', {
+      method: 'POST',
+      body: JSON.stringify({ cards }),
+    });
+  },
+};
+
+// Spotify API (for artist search)
+export const spotifyApi = {
+  async searchArtists(query: string): Promise<ApiResponse<{ artists: ArtistPreference[] }>> {
+    return apiFetch(`/api/spotify/search/artists?q=${encodeURIComponent(query)}`);
+  },
+};
+
 // Export all APIs
 export const api = {
   auth: authApi,
@@ -287,6 +357,9 @@ export const api = {
   unbox: unboxApi,
   trades: tradesApi,
   analytics: analyticsApi,
+  energy: energyApi,
+  blackjack: blackjackApi,
+  spotify: spotifyApi,
 };
 
 export default api;

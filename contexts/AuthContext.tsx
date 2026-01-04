@@ -91,6 +91,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   const logout = async () => {
+    // Warn guests that their progress will be lost
+    if (user?.is_guest) {
+      const confirmed = window.confirm(
+        "Guest accounts can't be recovered after logout. All your progress will be lost. Continue?"
+      );
+      if (!confirmed) {
+        return; // User cancelled logout
+      }
+    }
+
     try {
       await authApi.logout();
     } catch (error) {

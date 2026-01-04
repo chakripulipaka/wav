@@ -1,7 +1,7 @@
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import { createServerClient } from '@supabase/ssr';
 import { cookies } from 'next/headers';
-import type { Profile, Card, UserCard, Trade, TradeCard, Unboxing, UserDailyStats, LeaderboardEntry } from './types';
+import type { Profile, Card, UserCard, Trade, TradeCard, Unboxing, UserDailyStats, LeaderboardEntry, ArtistPreference } from './types';
 import { calculateEnergy } from './types';
 
 // Database schema type for Supabase
@@ -243,10 +243,11 @@ export async function recalculateUserEnergy(userId: string): Promise<{ energy: n
 export async function getLeaderboard(limit: number = 10): Promise<LeaderboardEntry[]> {
   const supabase = getSupabaseAdminClient();
 
-  // Get all users
+  // Get all users (exclude guests)
   const { data: users, error } = await supabase
     .from('profiles')
-    .select('id, username, avatar_url, cards_collected');
+    .select('id, username, avatar_url, cards_collected')
+    .eq('is_guest', false);
 
   if (error) {
     console.error('Error fetching users for leaderboard:', error);
@@ -469,12 +470,14 @@ export async function updateUserAvatar(userId: string, avatarUrl: string): Promi
   return data;
 }
 
-// Update user profile fields (privacy settings, etc.)
+// Update user profile fields (privacy settings, preferences, etc.)
 export async function updateUserProfile(
   userId: string,
   updates: {
     deck_privacy?: 'public' | 'private';
     trade_privacy?: 'public' | 'private';
+    top_genres?: string[];
+    top_artists?: ArtistPreference[];
   }
 ): Promise<Profile | null> {
   const supabase = getSupabaseAdminClient();
@@ -492,4 +495,28 @@ export async function updateUserProfile(
   }
 
   return data;
+}
+
+// Get user preferences (genres and artists)
+export async function getUserPreferences(userId: string): Promise<{
+  top_genres: string[];
+  top_artists: ArtistPreference[];
+} | null> {
+  const supabase = getSupabaseAdminClient();
+
+  const { data, error } = await supabase
+    .from('profiles')
+    .select('top_genres, top_artists')
+    .eq('id', userId)
+    .single();
+
+  if (error) {
+    console.error('Error fetching user preferences:', error);
+    return null;
+  }
+
+  return {
+    top_genres: data?.top_genres || [],
+    top_artists: data?.top_artists || [],
+  };
 }

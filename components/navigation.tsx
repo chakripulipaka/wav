@@ -19,7 +19,7 @@ export function Navigation() {
 
   const navItems = [
     { href: "/deck", label: "My WAV", icon: LayoutDashboard },
-    { href: "/unbox", label: "Unbox", icon: Package },
+    { href: "/games", label: "Games", icon: Package },
     { href: "/trade", label: "Trade", icon: ArrowLeftRight },
     { href: "/analytics", label: "Analytics", icon: BarChart3 },
   ]
@@ -91,11 +91,27 @@ export function Navigation() {
           <DropdownMenuContent align="end" className="w-48">
             <div className="px-2 py-1.5">
               <p className="text-sm font-medium">{username}</p>
-              {user?.email && (
+              {user?.email && !user?.is_guest && (
                 <p className="text-xs text-muted-foreground">{user.email}</p>
+              )}
+              {user?.is_guest && (
+                <div className="mt-1 inline-flex items-center px-2 py-0.5 bg-secondary/10 rounded-full text-xs font-medium text-secondary">
+                  Guest Mode
+                </div>
               )}
             </div>
             <DropdownMenuSeparator />
+            {user?.is_guest && (
+              <>
+                <DropdownMenuItem asChild>
+                  <Link href="/login?mode=signup" className="cursor-pointer text-primary">
+                    Create Account
+                  </Link>
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+              </>
+            )}
+
             <DropdownMenuItem asChild>
               <Link href="/profile" className="cursor-pointer">
                 Profile Settings
