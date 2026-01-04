@@ -74,6 +74,10 @@ export const authApi = {
   async logout(): Promise<ApiResponse<{ message: string }>> {
     return apiFetch('/api/auth/logout', { method: 'POST' });
   },
+
+  async deleteGuest(): Promise<ApiResponse<{ message: string }>> {
+    return apiFetch('/api/auth/delete-guest', { method: 'POST' });
+  },
 };
 
 // Users API

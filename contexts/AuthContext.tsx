@@ -3,6 +3,7 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { authApi } from '@/lib/api';
 import type { Profile } from '@/lib/types';
+import { GuestLogoutModal } from '@/components/guest-logout-modal';
 
 type User = Omit<Profile, 'password_hash'>;
 
@@ -21,6 +22,7 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [showLogoutModal, setShowLogoutModal] = useState(false);
 
   // Check authentication status on mount
   const checkAuth = useCallback(async () => {
@@ -91,23 +93,39 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   const logout = async () => {
-    // Warn guests that their progress will be lost
+    // Show warning modal for guests
     if (user?.is_guest) {
-      const confirmed = window.confirm(
-        "Guest accounts can't be recovered after logout. All your progress will be lost. Continue?"
-      );
-      if (!confirmed) {
-        return; // User cancelled logout
-      }
+      setShowLogoutModal(true);
+      return; // Wait for modal confirmation
     }
 
+    await performLogout();
+  };
+
+  const performLogout = async () => {
     try {
-      await authApi.logout();
+      if (user?.is_guest) {
+        // Delete guest account entirely so they can't sign back in
+        await authApi.deleteGuest();
+      } else {
+        await authApi.logout();
+      }
     } catch (error) {
       console.error('Logout error:', error);
     } finally {
       setUser(null);
+      setShowLogoutModal(false);
+      // Navigate to home after logout completes
+      window.location.href = '/';
     }
+  };
+
+  const handleLogoutConfirm = () => {
+    performLogout();
+  };
+
+  const handleLogoutCancel = () => {
+    setShowLogoutModal(false);
   };
 
   const refreshUser = async () => {
@@ -124,7 +142,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     refreshUser,
   };
 
-  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
+  return (
+    <AuthContext.Provider value={value}>
+      {children}
+      <GuestLogoutModal
+        isOpen={showLogoutModal}
+        onClose={handleLogoutCancel}
+        onConfirm={handleLogoutConfirm}
+      />
+    </AuthContext.Provider>
+  );
 }
 
 export function useAuth() {

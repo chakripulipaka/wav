@@ -29,7 +29,7 @@ export function Navigation() {
 
   const handleLogout = () => {
     logout()
-    window.location.href = "/"
+    // Navigation happens in AuthContext after logout completes
   }
 
   return (
