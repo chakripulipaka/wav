@@ -90,6 +90,7 @@ export async function POST(request: NextRequest) {
         trades_completed: 0,
         deck_privacy: 'public',
         trade_privacy: 'public',
+        preferences_set: false, // Show welcome screen on first login
       })
       .select()
       .single();

@@ -31,6 +31,7 @@ export interface Profile {
   top_artists: ArtistPreference[];   // User's preferred artists
   is_guest: boolean;                 // Whether this is a guest account
   guest_number?: number;             // Guest identifier (only for guest accounts)
+  preferences_set: boolean;          // Whether user has completed onboarding preferences
   last_unbox_time?: string;
   created_at: string;
   updated_at: string;

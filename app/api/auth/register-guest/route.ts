@@ -71,6 +71,7 @@ export async function POST() {
         top_artists: [],
         is_guest: true,
         guest_number: nextGuestNumber,
+        preferences_set: false, // Show welcome screen on first login
       });
 
     if (profileError) {

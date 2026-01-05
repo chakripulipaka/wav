@@ -1,9 +1,10 @@
 'use client';
 
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
-import { authApi } from '@/lib/api';
-import type { Profile } from '@/lib/types';
+import { authApi, usersApi } from '@/lib/api';
+import type { Profile, ArtistPreference } from '@/lib/types';
 import { GuestLogoutModal } from '@/components/guest-logout-modal';
+import { WelcomeScreen } from '@/components/welcome-screen';
 
 type User = Omit<Profile, 'password_hash'>;
 
@@ -23,6 +24,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [showLogoutModal, setShowLogoutModal] = useState(false);
+  const [showWelcomeScreen, setShowWelcomeScreen] = useState(false);
 
   // Check authentication status on mount
   const checkAuth = useCallback(async () => {
@@ -30,6 +32,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const result = await authApi.me();
       if (result.data) {
         setUser(result.data);
+        // Show welcome screen if preferences not set
+        if (!result.data.preferences_set) {
+          setShowWelcomeScreen(true);
+        }
       } else {
         setUser(null);
       }
@@ -128,6 +134,42 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setShowLogoutModal(false);
   };
 
+  const handleWelcomeComplete = async (genres: string[], artists: ArtistPreference[]) => {
+    if (!user) return;
+
+    try {
+      // Save preferences and mark onboarding complete
+      await usersApi.updatePreferences(user.id, {
+        top_genres: genres,
+        top_artists: artists,
+      });
+
+      // Refresh user to get updated data
+      await refreshUser();
+      setShowWelcomeScreen(false);
+    } catch (error) {
+      console.error('Failed to save preferences:', error);
+    }
+  };
+
+  const handleWelcomeSkip = async () => {
+    if (!user) return;
+
+    try {
+      // Just mark preferences as set without saving any
+      await usersApi.updatePreferences(user.id, {
+        top_genres: [],
+        top_artists: [],
+      });
+
+      // Refresh user
+      await refreshUser();
+      setShowWelcomeScreen(false);
+    } catch (error) {
+      console.error('Failed to skip preferences:', error);
+    }
+  };
+
   const refreshUser = async () => {
     await checkAuth();
   };
@@ -150,6 +192,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         onClose={handleLogoutCancel}
         onConfirm={handleLogoutConfirm}
       />
+      {showWelcomeScreen && (
+        <WelcomeScreen
+          onComplete={handleWelcomeComplete}
+          onSkip={handleWelcomeSkip}
+        />
+      )}
     </AuthContext.Provider>
   );
 }

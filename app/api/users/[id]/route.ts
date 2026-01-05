@@ -123,11 +123,17 @@ export async function PUT(
       trade_privacy?: 'public' | 'private';
       top_genres?: string[];
       top_artists?: ArtistPreference[];
+      preferences_set?: boolean;
     } = {};
     if (deck_privacy) updates.deck_privacy = deck_privacy;
     if (trade_privacy) updates.trade_privacy = trade_privacy;
     if (top_genres !== undefined) updates.top_genres = top_genres;
     if (top_artists !== undefined) updates.top_artists = top_artists;
+
+    // Mark preferences as set when updating genres or artists
+    if (top_genres !== undefined || top_artists !== undefined) {
+      updates.preferences_set = true;
+    }
 
     if (Object.keys(updates).length === 0) {
       return NextResponse.json(
